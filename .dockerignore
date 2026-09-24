@@ -1,0 +1,16 @@
+.git
+.venv
+node_modules
+dist
+data
+.env
+deploy/certs
+frontend/public/wasm
+frontend/public/models
+__pycache__
+.pytest_cache
+*.egg-info
+test-results
+playwright-report
+
+frontend/public/inference-worker.js
