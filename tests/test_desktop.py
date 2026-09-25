@@ -19,7 +19,10 @@ def test_persistent_directory(monkeypatch, tmp_path):
     assert data_directory() == tmp_path / 'custom'
 
 
-def test_instance_lock_released(tmp_path):
+@pytest.mark.parametrize('existing', [None, b'', b'0'])
+def test_instance_lock_released(tmp_path, existing):
+    if existing is not None:
+        (tmp_path / 'desktop.lock').write_bytes(existing)
     lock = InstanceLock(tmp_path)
     try:
         with pytest.raises(RuntimeError):

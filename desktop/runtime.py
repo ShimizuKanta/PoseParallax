@@ -26,9 +26,8 @@ class InstanceLock:
         self.stream.seek(0)
         if os.name == 'nt':
             import msvcrt
-            if not self.stream.read(1):
-                self.stream.write(b'0'); self.stream.flush()
-            self.stream.seek(0)
+            # Windows supports locks beyond EOF, including an empty file.
+            # Do not read/write here: another handle may already lock byte 0.
             try:
                 msvcrt.locking(self.stream.fileno(), msvcrt.LK_NBLCK, 1)
             except OSError:
