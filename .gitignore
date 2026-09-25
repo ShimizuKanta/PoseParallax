@@ -13,3 +13,7 @@ frontend/public/models/*.task
 frontend/public/wasm/
 frontend/public/inference-worker.js
 deploy/certs/
+
+build/
+release/
+.venv-windows/

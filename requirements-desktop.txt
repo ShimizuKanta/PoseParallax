@@ -1,0 +1,4 @@
+-r requirements.lock
+cryptography==50.0.1
+qrcode==8.2
+pyinstaller==6.22.3

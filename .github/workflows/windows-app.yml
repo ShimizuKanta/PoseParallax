@@ -1,0 +1,39 @@
+name: Build Windows app
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/windows-desktop-app]
+jobs:
+  windows:
+    runs-on: windows-2022
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Build application and installer
+        shell: pwsh
+        run: ./scripts/build-windows.ps1
+      - name: Test Windows server and desktop lifecycle
+        shell: pwsh
+        run: ./.venv-windows/Scripts/python.exe -m pytest -q tests/test_desktop.py tests/test_game.py tests/test_api.py tests/test_view_spacing.py
+      - name: Test packaged executable
+        shell: pwsh
+        run: |
+          $folder = Join-Path $env:RUNNER_TEMP 'pose-smoke'
+          $process = Start-Process -FilePath './release/PoseParallax/PoseParallax.exe' -ArgumentList @('--smoke-test', "`"$folder`"") -PassThru
+          if (!$process.WaitForExit(90000)) { $process.Kill(); throw 'Packaged app timed out' }
+          if ($process.ExitCode -ne 0) { throw 'Packaged app failed' }
+          $result = Get-Content (Join-Path $folder 'smoke-result.json') | ConvertFrom-Json
+          if (!$result.ok) { throw ($result | ConvertTo-Json) }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PoseParallax-windows-x64
+          path: release/
+          if-no-files-found: error

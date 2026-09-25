@@ -1,6 +1,8 @@
 """Separate HTTP onboarding server. It never serves game APIs, credentials, or keys."""
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import os
+import socket
 import threading
 from urllib.parse import urlsplit
 
@@ -69,7 +71,15 @@ def create_setup_server(host, port, https_url, tls):
         def log_message(self, *args):
             pass
 
-    server = ThreadingHTTPServer((host, port), Handler)
+    class SetupServer(ThreadingHTTPServer):
+        allow_reuse_address = os.name != 'nt'
+
+        def server_bind(self):
+            if os.name == 'nt':
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            super().server_bind()
+
+    server = SetupServer((host, port), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True, name="certificate-setup")
     thread.start()
     return server
