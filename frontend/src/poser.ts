@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { edges, joints, type Point } from './types';
 import { boneGroup, skeletonColors, faceInk } from './skeleton-style';
 
-export function showPoser(container: HTMLElement, points: Point[]): () => void {
+export function showPoser(container: HTMLElement, points: Point[], showFace = true): () => void {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   container.append(renderer.domElement);
@@ -29,21 +29,23 @@ export function showPoser(container: HTMLElement, points: Point[]): () => void {
   const headMesh = new THREE.Mesh(new THREE.SphereGeometry(headRadius, 32, 24), materials.center);
   headMesh.position.copy(head); scene.add(headMesh);
   const ink = new THREE.MeshBasicMaterial({ color: faceInk });
-  // Project each facial feature onto the front surface of the sphere.
-  const surface = (x: number, y: number) => head.clone().add(new THREE.Vector3(
-    x, y, Math.sqrt(headRadius ** 2 - x ** 2 - y ** 2) + .003,
-  ));
-  const eyeGeometry = new THREE.SphereGeometry(.015, 16, 12);
-  for (const side of [-1, 1]) {
-    const eye = new THREE.Mesh(eyeGeometry, ink);
-    eye.position.copy(surface(side * .052, .035)); scene.add(eye);
+  if (showFace) {
+    // Project each facial feature onto the front surface of the sphere.
+    const surface = (x: number, y: number) => head.clone().add(new THREE.Vector3(
+      x, y, Math.sqrt(headRadius ** 2 - x ** 2 - y ** 2) + .003,
+    ));
+    const eyeGeometry = new THREE.SphereGeometry(.015, 16, 12);
+    for (const side of [-1, 1]) {
+      const eye = new THREE.Mesh(eyeGeometry, ink);
+      eye.position.copy(surface(side * .052, .035)); scene.add(eye);
+    }
+    const mouthPoints = Array.from({ length: 33 }, (_, i) => {
+      const t = i / 32;
+      return surface(-.062 + .124 * t, -.028 - .12 * t * (1 - t));
+    });
+    const mouthCurve = new THREE.CatmullRomCurve3(mouthPoints);
+    scene.add(new THREE.Mesh(new THREE.TubeGeometry(mouthCurve, 48, .007, 8, false), ink));
   }
-  const mouthPoints = Array.from({ length: 33 }, (_, i) => {
-    const t = i / 32;
-    return surface(-.062 + .124 * t, -.028 - .12 * t * (1 - t));
-  });
-  const mouthCurve = new THREE.CatmullRomCurve3(mouthPoints);
-  scene.add(new THREE.Mesh(new THREE.TubeGeometry(mouthCurve, 48, .007, 8, false), ink));
   const chin = head.clone().add(new THREE.Vector3(0, -headRadius, 0));
   for (const [a, b] of [...edges, [0, 11], [0, 12]]) {
     const from = a === 0 ? chin.clone() : new THREE.Vector3(...points[a]), to = new THREE.Vector3(...points[b]);
