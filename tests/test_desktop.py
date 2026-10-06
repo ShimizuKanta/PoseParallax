@@ -124,7 +124,7 @@ def test_gui_qr_and_shutdown(tmp_path):
     from desktop.gui import Window
     root = tk.Tk()
     root.withdraw()
-    window = Window(root, tmp_path, runtime_factory=lambda folder, notify: Runtime(
+    window = Window(root, tmp_path, runtime_factory=lambda folder, notify, **kwargs: Runtime(
         folder, notify, host='127.0.0.1', address='127.0.0.1', port=0, setup_port=0))
     deadline = time.monotonic() + 20
     try:

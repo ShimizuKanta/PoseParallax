@@ -13,7 +13,7 @@
 
 ## Windowsアプリ
 
-Windows用の起動・停止ウィンドウと、EXE・インストーラーのビルド設定を追加しています。利用者側にはPython・Node.js・OpenSSLの個別導入が不要です。配布物の作成方法・保存先・端末設定は [Windowsアプリの手順](docs/Windows_App.md) を参照してください。
+Windows用の起動・停止ウィンドウと、EXE・インストーラーのビルド設定を追加しています。標準ではQuick Tunnelで公開HTTPS URLを取得し、参加QRへ自動反映します。参加者は証明書登録なしで参加でき、主催者の管理画面はPC内部で開きます。利用者側にはPython・Node.js・OpenSSL・cloudflaredの個別導入が不要です。インターネット接続が必要です。配布物の作成方法・保存先・端末設定は [Windowsアプリの手順](docs/Windows_App.md) を参照してください。
 
 ## LAN内でHTTPS起動
 

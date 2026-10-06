@@ -2,17 +2,32 @@
 
 Windows 10 / 11 x64向けのサーバーアプリです。参加者は同じLANのスマートフォンからブラウザで接続します。
 
-## 利用者の操作
+## 利用者の操作（標準：証明書不要）
 
-1. `PoseParallax-Setup-0.1.0-windows-x64.exe` を実行し、インストールします。
-2. デスクトップまたはスタートメニューの **Pose Parallax** を開きます。HTTPSサーバーが自動起動します。
-3. Windowsファイアウォールの確認が出た場合は、会場のプライベートネットワークで許可します。接続できない場合は受信TCP 8000・8443の許可を確認してください。
-4. 「このPCの証明書設定」から公開CA証明書をダウンロードし、Windowsの「現在のユーザー → 信頼されたルート証明機関」に登録します。アプリはOSの証明書ストアを自動変更しません。
-5. 「管理者パスワードをコピー」→「管理画面を開く」でログインします。
-6. 初参加のスマートフォンでは「初回の証明書設定」QRを読み取り、案内に従いCAを登録します。登録済みの端末には「ゲーム参加」QRを案内します。
-7. プレイ中はアプリを開いたままにします。「サーバー停止」またはウィンドウを閉じる操作で確認後に停止します。進行中のラウンドは再起動時に中止として復元されます。
+1. `PoseParallax-Setup-0.2.0-windows-x64.exe` を実行し、インストールします。
+2. デスクトップまたはスタートメニューの **Pose Parallax** を開きます。「インターネット（証明書不要）」で自動起動します。
+3. 「稼働中」になったら表示されたQRを参加者に案内します。公開HTTPSの接続確認が完了するまでQRは表示されません。
+4. 参加者はスマートフォンでQRを読み、名前を入力してカメラを許可します。Cloudflareアカウント・CA証明書登録・専用スマートフォンアプリは不要です。
+5. 主催者は「管理者パスワードをコピー」→「管理画面を開く」でログインします。管理画面はこのPCのローカルURLで開き、その画面の参加QRには公開HTTPS URLが反映されます。
+6. プレイ中はアプリを開いたままにします。「サーバー停止」またはウィンドウを閉じる操作で確認後に停止します。
 
-利用者によるPython・Node.js・OpenSSLのインストールは不要です。モデルも同梱され、初回起動時のダウンロードはありません。IPは起動のたびに検出します。ネットワークを変えた場合は停止して起動し直してください。
+PCとスマートフォンにはプレイ中もインターネット接続が必要です。同じWi-Fiに接続する必要はありません。接続し直すたびに参加URLが変わり、アプリと管理画面のQRへ新しいURLを自動反映します。古いQRは使えないので新しいQRを案内してください。ホスト名が変わるため、参加者のブラウザのログイン状態も新しいURLへは引き継がれません。
+
+サーバーはPC内部の空きポートで待ち受け、同梱のCloudflare Quick Tunnelが公開HTTPSへ中継します。参加用の受信ポート開放は不要です。ネットワークがトンネルの外向き接続を制限している場合は接続できません。接続開始のタイムアウトやトンネルプロセスの終了は画面に表示し、QRを消します。環境を確認して「サーバー起動」で再試行してください。トンネル内の一時的な通信断はcloudflaredが再接続を試みます。
+
+ゲーム処理と結果保存はPCで行います。画面・モデル・表示名・姿勢の33点の座標・スコア・結果の通信はCloudflareを経由します。カメラ映像は端末内で処理し送信しません。公開URLの管理画面からログインする場合はパスワードとセッション情報も中継されます。このPCの「管理画面を開く」は外部を経由しません。
+
+Quick Tunnelは試用・開発向けで、稼働保証がありません。本番の固定URL運用には通常のCloudflare Tunnel等を別途検討してください。[公式の条件](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/)
+
+## インターネットを使わない会場LAN接続
+
+停止中に「会場LAN（証明書登録が必要）」を選び、「サーバー起動」を押します。従来どおりLAN IPを自動検出し、HTTPS証明書と証明書設定ページを生成します。
+
+- PCと参加端末を同じLANに接続し、Windowsファイアウォールで受信TCP 8000・8443を許可します。
+- 「証明書の設定手順」から会場CAをダウンロードし、主催者PCとスマートフォンへ登録します。
+- 最初は「初回の証明書設定」QR、登録後は「ゲーム参加」QRを使います。
+
+アプリにはPython・画面・モデル・cloudflaredを同梱するため、利用者によるPython・Node.js・OpenSSL・cloudflaredの個別インストールは不要です。
 
 ## 保存先と更新
 
@@ -37,12 +52,12 @@ PowerShellでプロジェクト直下から実行します。
 powershell -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1
 ```
 
-スクリプトがWindows専用仮想環境 `.venv-windows` を作り、依存取得、モデル取得、画面ビルド、PyInstallerでのEXE生成、Inno Setupでのインストーラー生成を行います。実行ポリシーの指定はこのプロセスだけに適用されます。
+スクリプトがWindows専用仮想環境 `.venv-windows` を作り、依存取得、公式cloudflaredの取得・SHA-256検証、モデル取得、画面ビルド、PyInstallerでのEXE生成、Inno Setupでのインストーラー生成を行います。実行ポリシーの指定はこのプロセスだけに適用されます。
 
 出力：
 
 - `release\PoseParallax\`：ポータブル版。**フォルダー全体**を配布し、`PoseParallax.exe` を起動します。
-- `release\PoseParallax-Setup-0.1.0-windows-x64.exe`：インストーラー。
+- `release\PoseParallax-Setup-0.2.0-windows-x64.exe`：インストーラー。
 
 バージョンは `packaging/windows/installer.iss` の `AppVersion` で指定します。
 
@@ -51,7 +66,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1
 ## 検証
 
 ```powershell
-.\.venv-windows\Scripts\python.exe -m pytest -q tests/test_desktop.py
+.\.venv-windows\Scripts\python.exe -m pytest -q tests/test_desktop.py tests/test_tunnel.py
 .\.venv-windows\Scripts\python.exe -m desktop.entry
 ```
 
@@ -62,10 +77,12 @@ $p = Start-Process .\release\PoseParallax\PoseParallax.exe -ArgumentList '--smok
 Get-Content C:\Temp\PoseParallaxSmoke\smoke-result.json
 ```
 
+実際の公開HTTPS・参加・Secure Cookie・WebSocketの確認は `--smoke-test` を `--tunnel-smoke-test` に置き換えます。隔離データを使うため通常のゲームデータは変更しません。
+
 `{"ok": true}` が成功です。Windowsインストーラーの実行、GUIの操作、ファイアウォール越しのiPhone / Android接続はWindows実機で確認してください。Linuxでのテスト成功だけではWindows配布物の動作確認にはなりません。
 
 ## 構成
 
-`desktop/gui.py` がTkの操作画面、`desktop/runtime.py` がサーバーのライフサイクル、`desktop/certificates.py` が外部コマンド不要の証明書生成です。ゲームとAPIは既存の `server` を共有します。PyInstallerは静的画面・モデル・WASMとPython依存を同梱します。
+`desktop/gui.py` がTkの操作画面、`desktop/runtime.py` がサーバーのライフサイクル、`desktop/certificates.py` が外部コマンド不要の証明書生成です。ゲームとAPIは既存の `server` を共有します。`desktop/tunnel.py` がcloudflaredの子プロセス、URL取得、公開HTTPSの確認、終了を管理します。PyInstallerは静的画面・モデル・WASM・Python依存とcloudflaredを同梱します。バージョンとハッシュは `packaging/cloudflared.json` に固定し、ビルド時のみ取得します。Apacheライセンスも同梱します。
 
 参考：[PyInstallerの配布方式](https://pyinstaller.org/en/stable/operating-mode.html)、[cryptographyのX.509 API](https://cryptography.io/en/stable/x509/)、[Inno Setupのユーザー単位インストール](https://jrsoftware.org/ishelp/topic_setup_privilegesrequired.htm)。WindowsのEXEはWindows上でビルドします。

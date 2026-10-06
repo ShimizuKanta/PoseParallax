@@ -1,0 +1,16 @@
+{
+  "version": "2026.10.0",
+  "license_url": "https://raw.githubusercontent.com/cloudflare/cloudflared/2026.10.0/LICENSE",
+  "platforms": {
+    "win32": {
+      "asset": "cloudflared-windows-amd64.exe",
+      "filename": "cloudflared.exe",
+      "sha256": "86aee4017b26625cee8484c113558f48effa4cd47f7aa05fcf425604e5d2b23c"
+    },
+    "linux": {
+      "asset": "cloudflared-linux-amd64",
+      "filename": "cloudflared",
+      "sha256": "d33ff2d14475178d2012c2c56beba87389ac5ded27649519f198a7d3134a99db"
+    }
+  }
+}

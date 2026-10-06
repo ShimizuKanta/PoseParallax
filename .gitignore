@@ -17,3 +17,5 @@ deploy/certs/
 build/
 release/
 .venv-windows/
+
+vendor/cloudflared/

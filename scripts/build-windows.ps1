@@ -7,6 +7,7 @@ function Run-Step([string]$Program, [string[]]$Arguments) {
 Run-Step 'py' @('-3.12', '-m', 'venv', '.venv-windows')
 $Python = Join-Path $PWD '.venv-windows\Scripts\python.exe'
 Run-Step $Python @('-m', 'pip', 'install', '-r', 'requirements-desktop.txt')
+Run-Step $Python @('scripts/prepare-cloudflared.py')
 Run-Step 'npm.cmd' @('ci')
 Run-Step 'npm.cmd' @('run', 'assets')
 Run-Step 'npm.cmd' @('run', 'build')

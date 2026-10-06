@@ -32,14 +32,20 @@ class Window:
         self.url = tk.StringVar()
         ttk.Entry(body, textvariable=self.url, state='readonly').pack(fill='x')
         self.qr = ttk.Label(body, anchor='center'); self.qr.pack(pady=12)
-        self.qr_mode = tk.StringVar(value='setup_url')
-        choices = ttk.Frame(body); choices.pack()
+        self.mode = tk.StringVar(value='tunnel')
+        methods = ttk.Frame(body); methods.pack(pady=8)
+        self.mode_buttons = []
+        for label, value in [('インターネット（証明書不要）', 'tunnel'), ('会場LAN（証明書登録が必要）', 'lan')]:
+            button = ttk.Radiobutton(methods, text=label, value=value, variable=self.mode)
+            button.pack(side='left', padx=6); self.mode_buttons.append(button)
+        self.qr_mode = tk.StringVar(value='url')
+        self.qr_choices = choices = ttk.Frame(body)
         for label, value in [('初回の証明書設定', 'setup_url'), ('ゲーム参加', 'url')]:
             ttk.Radiobutton(choices, text=label, value=value, variable=self.qr_mode, command=self.update_qr).pack(side='left', padx=8)
         self.remote_buttons = []
         actions = ttk.Frame(body); actions.pack(pady=14)
         for label, command in [('管理画面を開く', self.open_admin), ('URLをコピー', self.copy_url),
-                               ('このPCの証明書設定', self.open_setup)]:
+                               ('証明書の設定手順', self.open_setup)]:
             button = ttk.Button(actions, text=label, command=command, state='disabled')
             button.pack(side='left', padx=3); self.remote_buttons.append(button)
         controls = ttk.Frame(body); controls.pack()
@@ -49,8 +55,8 @@ class Window:
         self.stop_button.pack(side='left', padx=8)
         ttk.Button(body, text='管理者パスワードをコピー', command=self.copy_password).pack(pady=12)
         ttk.Button(body, text='保存フォルダー・ログを開く', command=self.open_folder).pack()
-        ttk.Label(body, text='PCとスマートフォンを同じLANに接続してください。\n初回は各端末で証明書を登録します。Windowsのファイアウォールは\nプライベートネットワークでTCP 8000・8443の接続を許可してください。',
-                  wraplength=620, justify='left').pack(anchor='w', pady=14)
+        self.instructions = tk.StringVar(value='QRを読み、名前を入力してカメラを許可すれば参加できます。\nPCとスマートフォンはプレイ中もインターネット接続が必要です。\n接続し直すとURLが変わります。新しいQRを案内してください。')
+        ttk.Label(body, textvariable=self.instructions, wraplength=620, justify='left').pack(anchor='w', pady=14)
         self.fingerprint = tk.StringVar()
         ttk.Label(body, textvariable=self.fingerprint, wraplength=620, font=('Segoe UI', 8)).pack(anchor='w')
         root.after(100, self.poll)
@@ -60,10 +66,12 @@ class Window:
         if self.thread and self.thread.is_alive():
             return
         self.failed = False
-        self.status.set('HTTPSサーバーを起動しています…')
+        self.status.set('サーバーを起動しています…')
+        for button in self.mode_buttons:
+            button.configure(state='disabled')
         self.start_button.configure(state='disabled')
         self.stop_button.configure(state='normal')
-        self.runtime = self.runtime_factory(self.directory, lambda kind, value: self.events.put((kind, value)))
+        self.runtime = self.runtime_factory(self.directory, lambda kind, value: self.events.put((kind, value)), mode=self.mode.get())
         self.thread = threading.Thread(target=self.runtime.run, name='pose-server')
         self.thread.start()
 
@@ -100,10 +108,21 @@ class Window:
                 if kind == 'ready' and not self.runtime.stop_requested.is_set():
                     self.urls = value
                     self.status.set('稼働中 — このウィンドウを開いたままにしてください。')
-                    self.fingerprint.set('会場CA SHA-256: ' + value['fingerprint'])
-                    for button in self.remote_buttons:
+                    is_lan = value['mode'] == 'lan'
+                    self.qr_mode.set('setup_url' if is_lan else 'url')
+                    if is_lan:
+                        self.qr_choices.pack(before=self.remote_buttons[0].master, pady=4)
+                        self.instructions.set('PCとスマートフォンを同じLANに接続してください。\n初回は各端末で証明書を登録します。Windowsのファイアウォールは\nプライベートネットワークでTCP 8000・8443の接続を許可してください。')
+                    else:
+                        self.qr_choices.pack_forget()
+                        self.instructions.set('QRを読み、名前を入力してカメラを許可すれば参加できます。\nPCとスマートフォンはプレイ中もインターネット接続が必要です。\n接続し直すとURLが変わります。新しいQRを案内してください。')
+                    self.fingerprint.set('会場CA SHA-256: ' + value['fingerprint'] if is_lan else '画面・表示名・姿勢の座標・結果の通信はCloudflareを経由します。\nカメラ映像は送信しません。Quick Tunnelは稼働保証のない試用サービスです。')
+                    for button in self.remote_buttons[:2]:
                         button.configure(state='normal')
+                    self.remote_buttons[2].configure(state='normal' if is_lan else 'disabled')
                     self.update_qr()
+                elif kind == 'progress' and not self.runtime.stop_requested.is_set():
+                    self.status.set(value)
                 elif kind == 'error':
                     self.failed = True
                     self.status.set('起動・動作エラー: ' + value + '\n保存フォルダーの desktop.log を確認してください。')
@@ -118,6 +137,8 @@ class Window:
             if self.closing:
                 self.root.destroy(); return
             self.start_button.configure(state='normal')
+            for button in self.mode_buttons:
+                button.configure(state='normal')
             self.stop_button.configure(state='disabled')
         self.root.after(100, self.poll)
 
@@ -149,7 +170,7 @@ class Window:
 
     def open_admin(self):
         if self.urls:
-            webbrowser.open(self.urls['url'] + 'admin')
+            webbrowser.open(self.urls['admin_url'])
 
     def open_setup(self):
         if self.urls:
