@@ -153,7 +153,7 @@ function renderResults() {
   const pose = state!.round?.pose;
   if (pose) {
     const key = viewKey;
-    void import('./poser').then(({ showPoser }) => { if (viewKey === key) disposePoser = showPoser(document.querySelector('#result-pose')!, pose.points); });
+    void import('./poser').then(({ showPoser }) => { if (viewKey === key) disposePoser = showPoser(document.querySelector('#result-pose')!, pose.points, state!.me === state!.round!.poser_id); });
   }
 }
 function field(name: keyof Settings, label: string, min: number, max: number, step = 1) {

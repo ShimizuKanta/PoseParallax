@@ -1,6 +1,6 @@
 import type { Point } from './types';
 import { edges, joints } from './types';
-import { boneGroup, skeletonColors, faceInk } from './skeleton-style';
+import { boneGroup, skeletonColors } from './skeleton-style';
 
 type XY = [number, number];
 
@@ -42,7 +42,7 @@ export function drawSkeleton(canvas: HTMLCanvasElement, points: Point[], fit = t
       const across: XY = [(left[0] - right[0]) / shoulderWidth, (left[1] - right[1]) / shoulderWidth];
       const down: XY = [(shoulderMid[0] - head[0]) / neck, (shoulderMid[1] - head[1]) / neck];
       const offset = (x: number, y: number): XY => [head[0] + across[0] * x + down[0] * y, head[1] + across[1] * x + down[1] * y];
-      // Target face is a schematic glyph; the live face follows detected eyes and mouth corners.
+      // Landmarks determine the head size; observer views show a plain sphere.
       const eyeHalf = shoulderWidth * .13;
       const eyes: XY[] = !fit && visible(2) && visible(5) ? [xy(2), xy(5)]
         : [offset(eyeHalf, -neck * .1), offset(-eyeHalf, -neck * .1)];
@@ -59,11 +59,6 @@ export function drawSkeleton(canvas: HTMLCanvasElement, points: Point[], fit = t
       shade.addColorStop(0, skeletonColors.center); shade.addColorStop(1, '#419d9b');
       ctx.fillStyle = shade;
       ctx.beginPath(); ctx.arc(...head, headRadius, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = ctx.strokeStyle = faceInk;
-      const radius = Math.max(1.5, Math.min(4, Math.hypot(eyes[0][0] - eyes[1][0], eyes[0][1] - eyes[1][1]) * .13));
-      for (const eye of eyes) { ctx.beginPath(); ctx.arc(...eye, radius, 0, Math.PI * 2); ctx.fill(); }
-      ctx.lineWidth = Math.max(1.5, bodyWidth * .5);
-      ctx.beginPath(); ctx.moveTo(...mouth[0]); ctx.quadraticCurveTo(...control, ...mouth[1]); ctx.stroke();
     }
   }
   for (const i of valid) {
