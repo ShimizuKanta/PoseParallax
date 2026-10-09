@@ -2,19 +2,19 @@
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import threading
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 
-def setup_html(https_url, fingerprint):
+def setup_html(https_url, fingerprint, language="ja"):
     url = escape(https_url, quote=True)
     fingerprint = escape(fingerprint)
-    return f'''<!doctype html><html lang="ja"><head><meta charset="utf-8">
+    page = f'''<!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>スマートフォンの初期設定 · Pose Parallax</title>
 <style>body{{font-family:system-ui,sans-serif;background:#101827;color:#eef1f6;margin:0;line-height:1.8}}
 main{{max-width:680px;margin:auto;padding:30px 22px}}h1{{font-size:28px}}h2{{font-size:20px;margin-top:32px}}
 a{{color:#b8f36e}}.button{{display:inline-block;background:#b8f36e;color:#152216;padding:12px 18px;border-radius:10px;text-decoration:none;margin:8px 4px 8px 0}}
 li{{margin:12px 0}}code{{overflow-wrap:anywhere;font-size:12px}}.note{{color:#b8c5d7;font-size:14px}}details{{padding:16px;border:1px solid #3c4b60;border-radius:12px;margin-top:20px}}ol{{padding-left:24px}}</style></head>
-<body><main><p>POSE PARALLAX</p><h1>スマートフォンの初期設定</h1>
+<body><main><p>POSE PARALLAX</p><nav aria-label="Language"><a href="/?lang=ja">日本語</a> / <a href="/?lang=en">English</a></nav><h1>スマートフォンの初期設定</h1>
 <p>カメラを使うため、この会場の証明書を最初の1回だけ登録してください。登録後はHTTPSのゲームページに移動します。</p>
 <p class="note">会場の主催者が案内したページであることを確認してから登録してください。端末の設定変更が制限されている場合は主催者にお声がけください。</p>
 <h2>iPhone / iPad</h2><ol>
@@ -33,17 +33,56 @@ li{{margin:12px 0}}code{{overflow-wrap:anywhere;font-size:12px}}.note{{color:#b8
 <details><summary>主催者との照合・PCでの設定</summary><p>この会場CAのSHA-256指紋です。主催者の起動ログに表示された値と照合できます。</p><code>{fingerprint}</code>
 <p>PCで管理画面を使う場合も、この会場CAをOSまたはブラウザの信頼済みルート証明書へ登録してください。配布するのは公開証明書だけです。</p></details>
 <details><summary>イベント終了後に削除するには</summary><p>iPhoneでは「VPNとデバイス管理」から該当プロファイルを削除します。Androidでは「信頼できる認証情報」のユーザー項目から該当する「Pose Parallax Local CA」を削除します。</p></details>
-</main></body></html>'''.encode()
+</main></body></html>'''
+    if language == 'en':
+        for ja, en in sorted(SETUP_ENGLISH.items(), key=lambda item: len(item[0]), reverse=True):
+            page = page.replace(ja, en)
+        page = page.replace('lang="ja"', 'lang="en"').replace('/ja-jp/', '/en-us/').replace('?hl=ja', '?hl=en')
+    return page.encode()
+
+
+
+SETUP_ENGLISH = {
+    "スマートフォンの初期設定": "Phone setup",
+    "カメラを使うため、この会場の証明書を最初の1回だけ登録してください。登録後はHTTPSのゲームページに移動します。": "To use your camera, install this venue's certificate once. Then open the HTTPS game page.",
+    "会場の主催者が案内したページであることを確認してから登録してください。端末の設定変更が制限されている場合は主催者にお声がけください。": "Confirm that this page was provided by your host before installing. If your device restricts settings changes, ask the host.",
+    "このページをSafariで開き、": "Open this page in Safari, ",
+    "会場の証明書をダウンロード": "download the venue certificate",
+    "してプロファイルのダウンロードを許可します。": ", and allow the profile download.",
+    "「設定」→「一般」→「VPNとデバイス管理」から「Pose Parallax Local CA」のプロファイルを選び、インストールします。": "Go to Settings → General → VPN & Device Management. Select the Pose Parallax Local CA profile and install it.",
+    "「設定」→「一般」→「情報」→「証明書信頼設定」で、その「Pose Parallax Local CA」を": "Go to Settings → General → About → Certificate Trust Settings and enable ",
+    "完全に信頼": "full trust",
+    "する設定をオンにします。": " for Pose Parallax Local CA.",
+    "Safariに戻り、下の「ゲームを開く」を押します。": "Return to Safari and select Open game below.",
+    "Appleの公式手順": "Official Apple instructions",
+    "します。": ".",
+    "設定から「証明書をインストール」を検索し、": "Search your device settings for Install a certificate. Select ",
+    "CA証明書": "CA certificate",
+    "を選び、ダウンロードしたファイルを指定します。端末のPIN等を求められる場合があります。": " and choose the downloaded file. You may be asked for your device PIN.",
+    "Chromeを開き直し、下の「ゲームを開く」を押します。": "Reopen Chrome and select Open game below.",
+    "Pixelの例：「セキュリティとプライバシー」→「その他のセキュリティ設定」→「暗号化と認証情報」。名称は機種によって異なります。": "On Pixel: Security & privacy → More security settings → Encryption & credentials. Labels vary by device. ",
+    "Googleの公式手順": "Official Google instructions",
+    "ゲームを開く": "Open game",
+    "管理画面を開く": "Open admin",
+    "登録後も証明書の警告が出る場合は主催者に確認してください。警告を無視して進む方法では、カメラが利用できないことがあります。": "If certificate warnings remain after installation, ask the host. Bypassing a warning may prevent camera access.",
+    "主催者との照合・PCでの設定": "Verify with the host / PC setup",
+    "この会場CAのSHA-256指紋です。主催者の起動ログに表示された値と照合できます。": "This is the venue CA's SHA-256 fingerprint. Compare it with the value in the host's startup log.",
+    "PCで管理画面を使う場合も、この会場CAをOSまたはブラウザの信頼済みルート証明書へ登録してください。配布するのは公開証明書だけです。": "To use the admin page on a PC, install this venue CA in your OS or browser's trusted root certificates. Only the public certificate is distributed.",
+    "イベント終了後に削除するには": "Remove after the event",
+    "iPhoneでは「VPNとデバイス管理」から該当プロファイルを削除します。Androidでは「信頼できる認証情報」のユーザー項目から該当する「Pose Parallax Local CA」を削除します。": "On iPhone, remove the profile from VPN & Device Management. On Android, remove Pose Parallax Local CA from the User section of Trusted credentials.",
+}
 
 
 def create_setup_server(host, port, https_url, tls):
-    page, certificate = setup_html(https_url, tls.fingerprint), tls.ca_der
+    pages = {language: setup_html(https_url, tls.fingerprint, language) for language in ("ja", "en")}
+    certificate = tls.ca_der
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             path = urlsplit(self.path).path
             if path in ("/", "/setup", "/admin"):
-                self.respond(200, page, "text/html; charset=utf-8")
+                language = parse_qs(urlsplit(self.path).query).get("lang", ["ja"])[0]
+                self.respond(200, pages.get(language, pages["ja"]), "text/html; charset=utf-8")
             elif path in ("/pose-parallax-ca.crt", "/pose-parallax-ca.cer"):
                 self.respond(200, certificate, "application/x-x509-ca-cert", path[1:])
             elif path == "/health":

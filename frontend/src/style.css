@@ -146,3 +146,68 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; margin: 24px 0 0;
 .skeleton-legend > span { display: inline-flex; align-items: center; gap: 4px; }
 .skeleton-legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .target-card .skeleton-legend { margin-bottom: 14px; }
+
+/* The live view takes the available viewport; details never replace the camera. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.header-tools, .round-tools { display: flex; align-items: center; gap: 12px; }
+.language-label select { min-height: 36px; width: auto; padding: 6px 26px 6px 10px; font-size: 12px; }
+.round-screen header { padding: max(8px, env(safe-area-inset-top)) 16px 8px; }
+.round-screen footer { display: none; }
+.round-screen main { max-width: none; margin: 0; padding: 8px 12px max(8px, env(safe-area-inset-bottom)); min-height: 0; }
+.round-screen .round-top { flex-shrink: 0; min-height: 48px; margin-bottom: 8px; }
+.round-screen .round-top h1 { font-size: 16px; margin: 0; }
+.round-screen .round-top .eyebrow { font-size: 9px; margin: 0 0 3px; }
+.round-screen .round-tools button { min-height: 40px; padding: 8px 12px; font-size: 12px; }
+.round-screen .timer { font-size: 22px; }
+.observer-screen main { height: calc(100dvh - 58px - env(safe-area-inset-top)); display: flex; flex-direction: column; }
+.observer-screen .camera-card { width: 100%; flex: 1; min-height: 160px; margin: 0; display: flex; flex-direction: column; border-radius: 14px; }
+.observer-screen .camera-stage { flex: 1; min-height: 100px; height: auto; max-height: none; aspect-ratio: auto; }
+.observer-screen .camera-stage video, .observer-screen #camera-overlay { inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.camera-stage .target-preview { position: absolute; top: 10px; right: 10px; width: clamp(78px, 20vw, 136px); display: flex; flex-direction: column; gap: 0; padding: 6px; border: 1px solid #7894aa; border-radius: 12px; background: #152335e8; color: #d7e5f4; min-height: 0; font-size: 10px; z-index: 1; }
+.camera-stage .target-preview:hover { background: #243c50; }
+.camera-stage .target-preview canvas { position: static; width: 100%; height: auto; aspect-ratio: 6 / 5; object-fit: contain; }
+.camera-notice { position: absolute; bottom: 12px; left: 12px; right: 12px; padding: 12px; border-radius: 12px; background: #101827ec; text-align: center; }
+.camera-notice p { font-size: 12px; margin: 0 0 8px; }
+.camera-notice button { min-height: 44px; font-size: 12px; }
+.camera-ready .camera-notice { display: none; }
+.match-strip { display: flex; gap: 18px; padding: 10px 14px; align-items: center; flex-shrink: 0; background: #1a2535; }
+.match-strip .score-row { display: flex; flex-direction: column; margin: 0; gap: 2px; }
+.match-strip .score-row strong { font-size: 25px; line-height: 1; }
+.match-strip .score-row > span { font-size: 9px; }
+.match-feedback { flex: 1; min-width: 0; }
+.match-strip #match-reason { margin: 6px 0 0; font-size: 11px; line-height: 1.4; min-height: 16px; }
+.round-screen #ready-button { flex-shrink: 0; margin: 8px 0 0; }
+.round-screen #poser-view { height: calc(100dvh - 250px); min-height: 240px; }
+.round-screen .poser-card { margin-bottom: 0; }
+.detail-dialog { color: #eef1f6; background: #1a2535; border: 1px solid #466079; border-radius: 20px; padding: 22px; width: min(94vw, 620px); max-height: 88dvh; overflow: auto; }
+.detail-dialog::backdrop { background: #040911aa; }
+.detail-dialog .section-head h2 { margin: 0; }
+.detail-dialog .section-head { margin-bottom: 18px; }
+.detail-dialog #camera-retry { margin-bottom: 18px; }
+.detail-dialog .skeleton-legend { margin-bottom: 20px; }
+.target-dialog canvas { width: 100%; height: min(58dvh, 500px); object-fit: contain; }
+.target-dialog { text-align: center; }
+.result-history { margin-top: 8px; }
+@media (max-width: 640px) {
+  header { padding: 14px 16px; }
+  .header-tools { gap: 8px; }
+  .brand-light { display: none; }
+  .connection { max-width: 100px; white-space: normal; text-align: right; }
+  .join-grid h1 { font-size: 32px; }
+  .hero-art { height: 100px; }
+  .hero-art svg { height: 120px; }
+  .join-card { padding: 22px; }
+  .join-card form { margin-top: 18px; }
+  .steps { padding: 16px 0; }
+  .round-screen header { height: calc(58px + env(safe-area-inset-top)); }
+  .round-screen .brand { font-size: 10px; }
+  .round-screen .brand-icon { width: 26px; height: 26px; }
+  .round-screen .connection { max-width: 74px; font-size: 9px; }
+}
+@media (orientation: landscape) and (max-height: 550px) {
+  .observer-screen .round-top { min-height: 32px; margin-bottom: 4px; }
+  .observer-screen .round-top h1 { display: none; }
+  .observer-screen .match-strip { padding: 6px 12px; }
+  .observer-screen .target-preview { top: 6px; right: 6px; width: 76px; }
+  .round-screen #poser-view { height: calc(100dvh - 170px); min-height: 140px; }
+}

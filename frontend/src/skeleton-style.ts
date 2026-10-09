@@ -1,3 +1,4 @@
+import { t } from './i18n';
 // A distinct green / cyan / blue palette for the 3D pose, targets and camera overlay.
 export const skeletonColors = {
   left: '#75df91',
@@ -12,6 +13,6 @@ export function boneGroup(a: number, b: number): keyof typeof skeletonColors {
   return a % 2 === 1 ? 'left' : 'right';
 }
 
-export const skeletonLegend = `<span class="skeleton-legend" aria-label="本人の左半身・中央・右半身の色">${([
+export const skeletonLegend = () => `<span class="skeleton-legend" aria-label="${t('本人の左半身・中央・右半身の色')}">${([
   ['left', '左'], ['center', '中央'], ['right', '右'],
-] as const).map(([group, label]) => `<span><i style="background:${skeletonColors[group]}"></i>${label}</span>`).join('')}</span>`;
+] as const).map(([group, label]) => `<span><i style="background:${skeletonColors[group]}"></i>${t(label)}</span>`).join('')}</span>`;
