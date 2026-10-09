@@ -202,12 +202,29 @@ def test_gui_tunnel_qr_changes_and_clears_on_disconnect(tmp_path, monkeypatch):
         assert window.qr_image.width() > 100
         assert not window.qr_choices.winfo_manager()
         assert str(window.remote_buttons[2]['state']) == 'disabled'
+        runtime_before, thread_before = window.runtime, window.thread
+        qr_before = str(window.qr['image'])
+        window.language.set('English'); window.change_language()
+        assert window.runtime is runtime_before and window.thread is thread_before
+        assert str(window.qr['image']) == qr_before
+        assert window.url.get() == 'https://one.trycloudflare.com/'
+        assert window.status.get().startswith('Running')
+        assert window.start_button['text'] == 'Start server'
+        assert window.quick_guide.get().startswith('Scan the QR')
+        assert window.fingerprint.get().startswith('Pages, display names')
+        from desktop.i18n import Translator
+        assert Translator(tmp_path).language == 'en'
+        window.open_details(); root.update()
+        assert window.details.state() == 'normal'
+        window.details.withdraw()
         window.open_admin()
         assert opened[0].startswith('http://127.0.0.1:')
+        assert opened[0].endswith('/admin?lang=en')
         used[0].dead = True
         until(lambda: window.failed and not window.thread.is_alive())
         root.update()
         assert window.url.get() == ''
+        assert window.status.get().startswith('Startup / runtime error: Internet connection ended.')
         assert not window.qr['image']
         window.start()
         until(lambda: bool(window.urls))
