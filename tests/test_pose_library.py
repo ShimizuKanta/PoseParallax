@@ -62,7 +62,7 @@ def test_pool_is_varied_with_rare_balance_and_english_names():
     assert len(depth_poses) >= len(POSES) // 2
     twisted = [p for p in POSES if abs(p['points'][11][2] - p['points'][12][2]) >= .15]
     assert len(twisted) >= len(POSES) // 3
-    english = json.loads((Path(__file__).parents[1] / 'frontend/src/locales/en.json').read_text())
+    english = json.loads((Path(__file__).parents[1] / 'frontend/src/locales/en.json').read_text(encoding='utf-8'))
     assert all(p['name'] in english for p in POSES)
     # Ignore position offsets when checking for near-duplicate skeletal shapes.
     def centered(pose):
