@@ -146,6 +146,12 @@ def test_gui_qr_and_shutdown(tmp_path):
         if window.thread:
             window.thread.join(timeout=15)
         root.destroy()
+    # No Window -> Runtime -> notify -> Window cycle may survive teardown:
+    # its Tk variables would otherwise be finalized during a later server GC.
+    import weakref
+    reference = weakref.ref(window)
+    del window
+    assert reference() is None
 
 
 def test_onboarding_port_conflict_releases_https_port(tmp_path):

@@ -107,7 +107,10 @@ class Window:
             button.configure(state='disabled')
         self.start_button.configure(state='disabled')
         self.stop_button.configure(state='normal')
-        self.runtime = self.runtime_factory(self.directory, lambda kind, value: self.events.put((kind, value)), mode=self.mode.get())
+        # Capture the queue rather than this Window: a runtime -> notify ->
+        # Window cycle can defer Tk finalizers to a later server thread.
+        events = self.events
+        self.runtime = self.runtime_factory(self.directory, lambda kind, value: events.put((kind, value)), mode=self.mode.get())
         self.thread = threading.Thread(target=self.runtime.run, name='pose-server')
         self.thread.start()
 
