@@ -59,8 +59,21 @@ class Game:
             return
         fewest = min(p["poser_count"] for p in players)
         poser = random.choice([p for p in players if p["poser_count"] == fewest])
-        pose = copy.deepcopy(random.choice(POSES))
-        views = {p["id"]: make_view(pose, self.defaults) for p in players if p["id"] != poser["id"]}
+        # A random ordering makes every pose eligible without tiers or weights.
+        # Tight host settings can exclude a pose: try the rest of the same pool,
+        # retaining every configured projection constraint and leaving state
+        # untouched if no pose can provide views for all observers.
+        for candidate in random.sample(POSES, len(POSES)):
+            try:
+                views = {p["id"]: make_view(candidate, self.defaults)
+                         for p in players if p["id"] != poser["id"]}
+            except ValueError as exc:
+                view_error = exc
+                continue
+            pose = copy.deepcopy(candidate)
+            break
+        else:
+            raise view_error
         self.state["round"] = {"id": uuid.uuid4().hex, "number": len(self.state["history"]) + 1,
                                "poser_id": poser["id"], "pose": pose, "views": views,
                                "settings": self.defaults.model_dump(), "started_at": None,
