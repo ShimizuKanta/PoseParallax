@@ -12,6 +12,24 @@ export class Camera {
   private timer = 0;
   private initTimer = 0;
   private generation = 0;
+  private resizeTimer = 0;
+  private constraints(): MediaTrackConstraints {
+    const stage = this.video.parentElement!;
+    const aspect = Math.max(.3, Math.min(3, stage.clientWidth / Math.max(1, stage.clientHeight)));
+    return {
+      facingMode: { ideal: 'environment' },
+      width: { ideal: Math.round(aspect < 1 ? 640 * aspect : 640) },
+      height: { ideal: Math.round(aspect < 1 ? 640 : 640 / aspect) },
+      aspectRatio: { ideal: aspect }, frameRate: { ideal: 15, max: 24 },
+    };
+  }
+  private onResize = () => {
+    clearTimeout(this.resizeTimer);
+    const generation = this.generation;
+    this.resizeTimer = window.setTimeout(() => {
+      if (generation === this.generation) void this.stream?.getVideoTracks()[0]?.applyConstraints(this.constraints()).catch(() => {});
+    }, 250);
+  };
   private onVisibility = () => { if (document.hidden) this.onPoints(Array.from({ length: 33 }, () => [0, 0, 0])); };
   constructor(private video: HTMLVideoElement, private canvas: HTMLCanvasElement,
               private status: (message: string) => void, private onPoints: (points: Point[]) => void,
@@ -26,7 +44,7 @@ export class Camera {
       }
       this.status('カメラへのアクセスを許可してください');
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 24 } },
+        audio: false, video: this.constraints(),
       });
       if (generation !== this.generation) { stream.getTracks().forEach(t => t.stop()); return; }
       this.stream = stream; this.video.srcObject = stream;
@@ -73,6 +91,7 @@ export class Camera {
       };
       this.worker.postMessage({ type: 'init' });
       document.addEventListener('visibilitychange', this.onVisibility);
+      window.addEventListener('resize', this.onResize);
     } catch (error) {
       if (generation !== this.generation) return;
       const name = error instanceof DOMException ? error.name : '';
@@ -99,9 +118,10 @@ export class Camera {
 
   stop() {
     this.generation++; this.running = false; this.busy = false; this.lastFrame = -1;
-    clearTimeout(this.timer); clearTimeout(this.initTimer); this.worker?.terminate(); this.worker = null;
+    clearTimeout(this.timer); clearTimeout(this.initTimer); clearTimeout(this.resizeTimer); this.worker?.terminate(); this.worker = null;
     this.stream?.getTracks().forEach(t => t.stop()); this.stream = null; this.video.srcObject = null;
     document.removeEventListener('visibilitychange', this.onVisibility);
+    window.removeEventListener('resize', this.onResize);
     this.onReady(false);
   }
 }

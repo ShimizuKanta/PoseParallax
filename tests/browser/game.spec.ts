@@ -53,7 +53,21 @@ test('mobile join, real model initialization, admin setup, clear and next group'
     await poser.getByRole('button', { name: 'ポーズの準備完了' }).click();
     await observer.getByRole('button', { name: 'カメラを起動 / 再試行' }).click();
     await expect(observer.getByRole('button', { name: 'カメラの準備完了' })).toBeEnabled({ timeout: 60000 });
-    await expect(observer.locator('#camera-overlay')).toHaveJSProperty('width', 640, { timeout: 15000 });
+    await expect.poll(async () => observer.locator('#camera-overlay').evaluate((canvas: HTMLCanvasElement) => canvas.width > 0 && canvas.width === (document.querySelector('#camera-video') as HTMLVideoElement).videoWidth), { timeout: 15000 }).toBeTruthy();
+    const cameraBefore = await observer.evaluate(() => {
+      const video = document.querySelector('#camera-video') as HTMLVideoElement;
+      (window as any).__originalVideo = video;
+      return (video.srcObject as MediaStream).getVideoTracks()[0].id;
+    });
+    await observer.getByLabel('Language / 言語').selectOption('en');
+    await expect(observer.getByRole('heading', { name: 'Find your perspective' })).toBeVisible();
+    await expect(observer.getByRole('button', { name: 'Camera ready', exact: true })).toBeEnabled();
+    expect(await observer.evaluate(() => {
+      const video = document.querySelector('#camera-video') as HTMLVideoElement;
+      return video === (window as any).__originalVideo && (video.srcObject as MediaStream).getVideoTracks()[0].readyState === 'live';
+    })).toBeTruthy();
+    expect(await observer.evaluate(() => ((document.querySelector('#camera-video') as HTMLVideoElement).srcObject as MediaStream).getVideoTracks()[0].id)).toBe(cameraBefore);
+    await observer.getByLabel('Language / 言語').selectOption('ja');
     await observer.getByRole('button', { name: 'カメラの準備完了' }).click();
     await expect(hostPage.getByRole('button', { name: 'ラウンド開始', exact: true })).toBeEnabled();
     await hostPage.screenshot({ path: testInfo.outputPath('admin-ready.png'), fullPage: true });
@@ -80,7 +94,20 @@ test('mobile join, real model initialization, admin setup, clear and next group'
     expect(timerReadings.length).toBeGreaterThan(5);
     expect(timerReadings.every(text => text !== '' && text !== '00:00.0')).toBeTruthy();
 
+    const cameraBox = await observer.locator('.camera-stage').boundingBox();
+    expect(cameraBox!.height).toBeGreaterThan(844 * .65);
+    await observer.getByRole('button', { name: '詳細', exact: true }).click();
     await expect(observer.locator('#round-message')).toContainText('一度クリアすれば確定');
+    await observer.getByLabel('Language / 言語').selectOption('en');
+    await expect(observer.locator('#round-message')).toContainText('Hold 0s');
+    await observer.locator('#round-details').getByRole('button', { name: 'Close', exact: true }).click();
+    await observer.getByRole('button', { name: 'Enlarge target' }).click();
+    await expect(observer.locator('#large-target')).toBeVisible();
+    await observer.locator('#target-dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    await observer.setViewportSize({ width: 844, height: 390 });
+    expect(await observer.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+    await observer.setViewportSize({ width: 390, height: 844 });
+    await observer.getByLabel('Language / 言語').selectOption('ja');
     await observer.screenshot({ path: testInfo.outputPath('observer-playing.png'), fullPage: true });
     expect(await observer.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
 
