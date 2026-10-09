@@ -4,7 +4,7 @@ Windows 10 / 11 x64向けのサーバーアプリです。参加者はスマー�
 
 ## 利用者の操作（標準：証明書不要）
 
-1. `PoseParallax-Setup-0.3.0-windows-x64.exe` を実行し、インストールします。
+1. `PoseParallax-Setup-0.4.0-windows-x64.exe` を実行し、インストールします。
 2. デスクトップまたはスタートメニューの **Pose Parallax** を開きます。「インターネット（証明書不要）」で自動起動します。
 3. 「稼働中」になったら表示されたQRを参加者に案内します。公開HTTPSの接続確認が完了するまでQRは表示されません。
 4. 参加者はスマートフォンでQRを読み、名前を入力してカメラを許可します。Cloudflareアカウント・CA証明書登録・専用スマートフォンアプリは不要です。
@@ -64,7 +64,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1
 出力：
 
 - `release\PoseParallax\`：ポータブル版。**フォルダー全体**を配布し、`PoseParallax.exe` を起動します。
-- `release\PoseParallax-Setup-0.3.0-windows-x64.exe`：インストーラー。
+- `release\PoseParallax-Setup-0.4.0-windows-x64.exe`：インストーラー。
 
 バージョンは `packaging/windows/installer.iss` の `AppVersion` で指定します。
 
