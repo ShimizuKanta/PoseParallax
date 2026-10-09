@@ -10,7 +10,7 @@ from server.poses import POSES, EDGES, JOINTS, rotate
 
 
 def render():
-    english = json.loads((ROOT / 'frontend/src/locales/en.json').read_text())
+    english = json.loads((ROOT / 'frontend/src/locales/en.json').read_text(encoding='utf-8'))
     rows = (len(POSES) + 3) // 4
     height = 64 + rows * 270
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="{height}" viewBox="0 0 1200 {height}" role="img" aria-labelledby="title desc">',
