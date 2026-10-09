@@ -242,3 +242,53 @@ def test_camera_stopping_revokes_ready(game):
     game.ready(players[0], rid, False)
     with pytest.raises(GameError):
         game.start()
+
+
+def test_setup_tries_other_poses_without_relaxing_constraints(game, monkeypatch):
+    import server.game as module
+    game.join('A'); game.join('B')
+    original = module.make_view
+    attempted = []
+    monkeypatch.setattr(module.random, 'sample', lambda pool, count: list(pool))
+    def limited(pose, settings):
+        attempted.append((pose['id'], settings.min_keypoint_separation))
+        if pose is POSES[0]:
+            raise ValueError('Selected pose cannot fit these views')
+        return original(pose, settings)
+    monkeypatch.setattr(module, 'make_view', limited)
+    game.setup()
+    assert [p for p,_ in attempted] == [POSES[0]['id'], POSES[1]['id']]
+    assert all(gap == .08 for _,gap in attempted)
+    assert game.state['round']['pose']['id'] == POSES[1]['id']
+
+
+def test_all_ineligible_poses_leave_round_and_poser_counts_unchanged(game, monkeypatch):
+    game.join('A'); game.join('B')
+    before = copy.deepcopy(game.state)
+    attempted = []
+    def unavailable(pose, settings):
+        attempted.append(pose['id'])
+        raise ValueError('No admissible view')
+    monkeypatch.setattr('server.game.make_view', unavailable)
+    with pytest.raises(ValueError, match='No admissible view'):
+        game.setup()
+    assert set(attempted) == {p['id'] for p in POSES}
+    assert game.state == before
+
+
+def test_any_pose_in_common_pool_can_be_randomly_selected(game, monkeypatch):
+    import server.game as module
+    game.join('A'); game.join('B')
+    game.configure(Settings(rounds=len(POSES)))
+    expected = iter(POSES)
+    def ordering(pool, count):
+        first = next(expected)
+        assert count == len(POSES) and pool is POSES
+        return [first] + [p for p in pool if p is not first]
+    monkeypatch.setattr(module.random, 'sample', ordering)
+    selected = []
+    for _ in POSES:
+        game.setup()
+        selected.append(game.state['round']['pose']['id'])
+        game.finish('skipped')
+    assert selected == [p['id'] for p in POSES]
