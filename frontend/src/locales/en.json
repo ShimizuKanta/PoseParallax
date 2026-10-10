@@ -229,5 +229,7 @@
   "うしろへ手を伸ばす": "Reach behind",
   "前へ進む戦士": "Forward warrior",
   "フラミンゴの4": "Flamingo four",
+  "自分のお手本の視点に戻す": "Reset to my target view",
+  "自分の2Dお手本": "My 2D target",
   "この仰角範囲ではカメラの高さが床から50cm未満になります。仰角の最大値を上げてください。": "This elevation range places the camera below 50 cm above the floor. Increase the maximum elevation."
 }

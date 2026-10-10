@@ -6,10 +6,14 @@ export interface Settings {
   min_limb_ratio: number; min_side_separation: number; min_keypoint_separation: number; round_seconds: number; rounds: number;
 }
 export interface Player { id: string; name: string; connected: boolean; ready: boolean; cleared: boolean; matched: boolean; score: number }
+export interface PoseView {
+  azimuth: number; elevation: number; distance: number; target_height: number; focal_scale: number;
+}
 export interface Round {
   id: string; number: number; poser_id: string; started_at: number | null; ended_at: number | null;
   outcome: string | null; cleared: Record<string, number>; settings: Settings;
   target?: Point[]; pose?: { id: string; name: string; points: Point[] };
+  target_view?: PoseView;
 }
 export interface Result {
   id: string; number: number; poser_id: string; participants: Record<string, string>;

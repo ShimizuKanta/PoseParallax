@@ -188,6 +188,12 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; margin: 24px 0 0;
 .target-dialog canvas { width: 100%; height: min(58dvh, 500px); object-fit: contain; }
 .target-dialog { text-align: center; }
 .result-history { margin-top: 8px; }
+.pose-review-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: center; }
+.pose-review-grid:not(:has(.review-target)) { grid-template-columns: minmax(0, 1fr); }
+.pose-review > button { margin-bottom: 12px; }
+.review-target { text-align: center; }
+.review-target canvas { width: 100%; height: auto; }
+@media (max-width: 640px) { .pose-review-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) {
   header { padding: 14px 16px; }
   .header-tools { gap: 8px; }

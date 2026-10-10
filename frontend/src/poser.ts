@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { edges, joints, type Point } from './types';
+import { edges, joints, type Point, type PoseView } from './types';
 import { boneGroup, skeletonColors, faceInk } from './skeleton-style';
+import { setTargetCamera } from './pose-view';
 
-export function showPoser(container: HTMLElement, points: Point[], showFace = true): () => void {
+export function showPoser(container: HTMLElement, points: Point[], showFace = true,
+  options: { targetView?: PoseView; resetButton?: HTMLButtonElement } = {}): () => void {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   container.append(renderer.domElement);
@@ -55,16 +57,33 @@ export function showPoser(container: HTMLElement, points: Point[], showFace = tr
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize()); scene.add(mesh);
   }
   const grid = new THREE.GridHelper(3, 12, 0x465366, 0x273547); scene.add(grid);
+  let targetViewActive = false;
+  const resetView = () => {
+    if (!options.targetView) return;
+    controls.target.set(0, options.targetView.target_height, 0);
+    setTargetCamera(camera, points, options.targetView);
+    controls.update();
+    targetViewActive = true;
+  };
+  const leaveTargetView = () => { targetViewActive = false; };
+  controls.addEventListener('start', leaveTargetView);
+  if (options.targetView && options.resetButton) {
+    options.resetButton.disabled = false;
+    options.resetButton.addEventListener('click', resetView);
+  }
   let frame = 0;
   const resize = new ResizeObserver(() => {
     const w = container.clientWidth, h = container.clientHeight;
     renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+    if (targetViewActive) resetView();
   });
   resize.observe(container);
   function render() { renderer.render(scene, camera); frame = requestAnimationFrame(render); }
   render();
   return () => {
     cancelAnimationFrame(frame); resize.disconnect(); controls.dispose();
+    options.resetButton?.removeEventListener('click', resetView);
+    controls.removeEventListener('start', leaveTargetView);
     scene.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose(); });
     grid.geometry.dispose(); (grid.material as THREE.Material).dispose();
     ink.dispose(); Object.values(materials).forEach(m => m.dispose()); renderer.dispose(); renderer.domElement.remove();
