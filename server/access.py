@@ -4,6 +4,37 @@ import hashlib
 import hmac
 import secrets
 import time
+from fastapi.responses import JSONResponse
+
+
+class RequestBodyLimit:
+    """Bound streamed bodies before JSON parsing, including chunked requests."""
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope['type'] != 'http':
+            return await self.app(scope, receive, send)
+        body = bytearray()
+        while True:
+            message = await receive()
+            if message['type'] == 'http.disconnect':
+                return
+            chunk = message.get('body', b'')
+            if len(body) + len(chunk) > 16 * 1024:
+                return await JSONResponse({'detail': '送信データが大きすぎます。'}, status_code=413)(scope, receive, send)
+            body.extend(chunk)
+            if not message.get('more_body', False):
+                break
+
+        async def replay():
+            nonlocal body
+            if body is not None:
+                payload, body = bytes(body), None
+                return {'type': 'http.request', 'body': payload, 'more_body': False}
+            return await receive()
+
+        await self.app(scope, replay, send)
 
 
 class RegistrationGuard:

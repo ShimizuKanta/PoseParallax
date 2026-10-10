@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
 
 from .game import Game, GameError
-from .access import RegistrationGuard
+from .access import RegistrationGuard, RequestBodyLimit
 from .models import KeypointFrame, Settings
 from .network import configured_public_url, detect_lan_ip, join_url
 from .storage import Store
@@ -137,6 +137,7 @@ def create_app(data_dir=None, admin_password=None, local_admin_port=None):
         app.state.store.close()
 
     app = FastAPI(title="Pose Parallax", lifespan=lifespan, docs_url=None, redoc_url=None)
+    app.add_middleware(RequestBodyLimit)
 
     def snapshot(identity, base_url, participant_token=None):
         identity = visible_identity(identity)
@@ -353,7 +354,7 @@ def create_app(data_dir=None, admin_password=None, local_admin_port=None):
 
     dist = ROOT / "dist"
     if dist.exists():
-        for folder in ("assets", "models", "wasm"):
+        for folder in ("assets", "models", "wasm", "licenses"):
             if (dist / folder).exists():
                 app.mount("/" + folder, StaticFiles(directory=dist / folder), name=folder)
 

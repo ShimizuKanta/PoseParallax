@@ -5,6 +5,7 @@ RUN npm ci
 COPY tsconfig.json vite.config.ts ./
 COPY scripts/prepare-assets.mjs scripts/build-worker.mjs scripts/
 COPY frontend frontend
+COPY LICENSE ./
 RUN npm run assets && npm run build
 
 FROM python:3.12-slim

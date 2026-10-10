@@ -1,14 +1,60 @@
 from contextlib import ExitStack
+import asyncio
+import json
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from server.access import RegistrationGuard
+from server.access import RegistrationGuard, RequestBodyLimit
 from server.app import create_app
 
 PASSWORD = "security-test-password"
+
+
+def test_http_body_limit_precedes_json_and_registration(tmp_path):
+    with TestClient(create_app(tmp_path, PASSWORD)) as client:
+        payload = json.dumps({'name': 'Invited', 'invite_token': client.app.state.invitation_token()}).encode()
+        response = client.post('/api/join', content=payload + b' ' * 16384,
+                               headers={'content-type': 'application/json'})
+        assert response.status_code == 413
+        assert client.app.state.game.active() == []
+        # A valid JSON body exactly at the limit still reaches the endpoint.
+        assert client.post('/api/join', content=payload.ljust(16384, b' '),
+                           headers={'content-type': 'application/json'}).status_code == 200
+
+
+@pytest.mark.parametrize('sizes,accepted', [([0], True), ([8192, 8192], True), ([8192, 8192, 1, 1000], False)])
+def test_streamed_body_limit_without_content_length(sizes, accepted):
+    async def check():
+        chunks = iter(sizes)
+        received, sent, called = [], [], []
+
+        async def receive():
+            size = next(chunks)
+            received.append(size)
+            return {'type': 'http.request', 'body': b'x' * size, 'more_body': True}
+
+        async def bounded_receive():
+            message = await receive()
+            message['more_body'] = len(received) < len(sizes)
+            return message
+
+        async def send(message):
+            sent.append(message)
+
+        async def endpoint(scope, receive, send):
+            called.append((await receive())['body'])
+
+        await RequestBodyLimit(endpoint)({'type': 'http'}, bounded_receive, send)
+        if accepted:
+            assert called == [b'x' * sum(sizes)]
+        else:
+            assert not called and sent[0]['status'] == 413
+            assert received == [8192, 8192, 1]  # Stop before reading the remaining body.
+
+    asyncio.run(check())
 
 
 def test_private_state_invitation_rotation_and_exclusion(tmp_path):
