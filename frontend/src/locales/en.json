@@ -228,5 +228,6 @@
   "風車のポーズ": "Windmill pose",
   "うしろへ手を伸ばす": "Reach behind",
   "前へ進む戦士": "Forward warrior",
-  "フラミンゴの4": "Flamingo four"
+  "フラミンゴの4": "Flamingo four",
+  "この仰角範囲ではカメラの高さが床から50cm未満になります。仰角の最大値を上げてください。": "This elevation range places the camera below 50 cm above the floor. Increase the maximum elevation."
 }
