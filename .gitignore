@@ -12,4 +12,6 @@ playwright-report/
 frontend/public/models/*.task
 frontend/public/wasm/
 frontend/public/inference-worker.js
+frontend/public/licenses/npm/
+frontend/public/licenses/PoseParallax-LICENSE
 deploy/certs/

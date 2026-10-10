@@ -1,9 +1,23 @@
 import { createHash } from 'node:crypto';
-import { mkdir, cp, readFile, writeFile, rename } from 'node:fs/promises';
+import { mkdir, cp, readFile, writeFile, rename, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
 const publicDir = path.join(root, 'frontend/public');
+// Preserve notices for production dependencies even after JS minification.
+const licenses = path.join(publicDir, 'licenses/npm');
+await rm(licenses, { recursive: true, force: true });
+const lock = JSON.parse(await readFile(path.join(root, 'package-lock.json'), 'utf8'));
+for (const [folder, metadata] of Object.entries(lock.packages)) {
+  if (!folder || metadata.dev || folder === 'node_modules/@mediapipe/tasks-vision') continue;
+  const source = path.join(root, folder);
+  const notices = (await readdir(source)).filter(name => /^(licen[sc]e|copying|notice)([.-]|$)/i.test(name));
+  if (!notices.length) throw new Error(`Missing license: ${folder}`);
+  const destination = path.join(licenses, folder.replace(/^node_modules\//, ''));
+  await mkdir(destination, { recursive: true });
+  for (const name of notices) await cp(path.join(source, name), path.join(destination, name));
+}
+await cp(path.join(root, 'LICENSE'), path.join(publicDir, 'licenses/PoseParallax-LICENSE'));
 await mkdir(path.join(publicDir, 'models'), { recursive: true });
 await cp(path.join(root, 'node_modules/@mediapipe/tasks-vision/wasm'), path.join(publicDir, 'wasm'), { recursive: true });
 const model = path.join(publicDir, 'models/pose_landmarker_lite.task');

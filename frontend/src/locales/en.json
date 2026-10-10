@@ -1,4 +1,5 @@
 {
+  "送信データが大きすぎます。": "The request data is too large.",
   "接続中": "Connecting",
   "会場に接続しています…": "Connecting to the game…",
   "視点が変わる。チームがつながる。": "New perspectives. One team.",

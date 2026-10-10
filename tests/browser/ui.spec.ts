@@ -1,4 +1,21 @@
 import { test, expect } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
+
+test('certificate setup preserves the invitation when switching language', async ({ page }) => {
+  const pages = JSON.parse(execFileSync('.venv/bin/python', ['-c', `
+import json
+from server.setup_page import setup_html
+print(json.dumps({lang:setup_html('https://game.example/','AB:CD',lang,False).decode() for lang in ('ja','en')}))
+`], {encoding:'utf8'}));
+  await page.route('**/?lang=*', route => route.fulfill({contentType:'text/html',
+    body:pages[new URL(route.request().url()).searchParams.get('lang')!]}));
+  await page.goto('/?lang=ja#invite=original-token');
+  await expect(page.getByRole('link', {name:'ゲームを開く',exact:true})).toHaveAttribute('href', 'https://game.example/#invite=original-token');
+  await page.getByRole('link', {name:'English',exact:true}).click();
+  await expect(page.getByRole('link', {name:'Open game',exact:true})).toHaveAttribute('href', 'https://game.example/#invite=original-token');
+  await page.getByRole('link', {name:'日本語',exact:true}).click();
+  await expect(page.getByRole('link', {name:'ゲームを開く',exact:true})).toHaveAttribute('href', 'https://game.example/#invite=original-token');
+});
 
 const settings = { clear_mode: 'latched', rounds: 4, round_seconds: 120, hold_seconds: 1, score_threshold: 70, confidence_threshold: .5, hidden_policy: 'require', min_visible: 8, joints: [11,12,13,14,15,16,23,24,25,26,27,28], azimuth_min: -90, azimuth_max: 90, elevation_min: -15, elevation_max: 15, min_limb_ratio: .08, min_side_separation: .08, min_keypoint_separation: .08 };
 const players = [{ id: 'a', name: 'クリア', connected: true, ready: false, cleared: false, matched: false, score: 0 }, { id: 'b', name: 'Welcome', connected: true, ready: false, cleared: false, matched: false, score: 0 }];
