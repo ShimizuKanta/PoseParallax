@@ -57,7 +57,7 @@ def test_tunnel_url_published_and_local_admin_preserved(tmp_path, monkeypatch):
         worker = threading.Thread(target=runtime.run); worker.start()
         try:
             details = ready(events)
-            assert details['url'] == connector.url
+            assert details['url'].startswith(connector.url + '#invite=')
             assert details['setup_url'] is None and details['fingerprint'] is None
             assert details['admin_url'].startswith('http://127.0.0.1:')
             assert details['mode'] == 'tunnel'
@@ -65,15 +65,16 @@ def test_tunnel_url_published_and_local_admin_preserved(tmp_path, monkeypatch):
             state_url = connector.origin + 'api/state'
             with opener.open(state_url) as response:
                 state = json.load(response)
-            assert state['join_url'] == connector.url
+            assert state['join_url'] is None and state['players'] == []
             assert state['setup_url'] is None
             # cloudflared forwards the original Host and HTTPS scheme to the loopback backend.
             login = urllib.request.Request(connector.origin + 'api/admin/login',
                 data=json.dumps({'password': (tmp_path / 'admin-password.txt').read_text().strip()}).encode(),
                 headers={'Content-Type': 'application/json', 'Host': name + '.trycloudflare.com',
                          'Origin': connector.url.rstrip('/'), 'X-Forwarded-Proto': 'https'})
-            with opener.open(login) as response:
-                assert 'Secure' in response.headers['Set-Cookie']
+            with pytest.raises(urllib.error.HTTPError) as exc:
+                opener.open(login)
+            assert exc.value.code == 403
             assert not (tmp_path / 'tls').exists()
         finally:
             runtime.stop(); worker.join(timeout=10)
@@ -198,7 +199,7 @@ def test_gui_tunnel_qr_changes_and_clears_on_disconnect(tmp_path, monkeypatch):
         assert predicate(), window.status.get()
     try:
         until(lambda: bool(window.urls))
-        assert window.url.get() == 'https://one.trycloudflare.com/'
+        assert window.url.get().startswith('https://one.trycloudflare.com/#invite=')
         assert window.qr_image.width() > 100
         assert not window.qr_choices.winfo_manager()
         assert str(window.remote_buttons[2]['state']) == 'disabled'
@@ -207,7 +208,7 @@ def test_gui_tunnel_qr_changes_and_clears_on_disconnect(tmp_path, monkeypatch):
         window.language.set('English'); window.change_language()
         assert window.runtime is runtime_before and window.thread is thread_before
         assert str(window.qr['image']) == qr_before
-        assert window.url.get() == 'https://one.trycloudflare.com/'
+        assert window.url.get().startswith('https://one.trycloudflare.com/#invite=')
         assert window.status.get().startswith('Running')
         assert window.start_button['text'] == 'Start server'
         assert window.quick_guide.get().startswith('Scan the QR')
@@ -228,7 +229,49 @@ def test_gui_tunnel_qr_changes_and_clears_on_disconnect(tmp_path, monkeypatch):
         assert not window.qr['image']
         window.start()
         until(lambda: bool(window.urls))
-        assert window.url.get() == 'https://two.trycloudflare.com/'
+        assert window.url.get().startswith('https://two.trycloudflare.com/#invite=')
     finally:
         window.runtime.stop(); window.thread.join(timeout=10)
         root.destroy()
+
+
+def test_actual_listeners_block_public_admin_and_rotate_desktop_qr(tmp_path):
+    import httpx
+    from urllib.parse import parse_qs, urlsplit
+    connector = Connector()
+    events = queue.Queue()
+    runtime = Runtime(tmp_path, lambda *e: events.put(e), mode='tunnel', tunnel_factory=lambda: connector)
+    worker = threading.Thread(target=runtime.run)
+    worker.start()
+    try:
+        details = ready(events)
+        admin_origin = details['admin_url'].removesuffix('admin')
+        assert admin_origin != connector.origin
+        password = (tmp_path / 'admin-password.txt').read_text().strip()
+        with httpx.Client(base_url=admin_origin, trust_env=False) as local, httpx.Client(base_url=connector.origin, trust_env=False) as public:
+            assert local.post('api/admin/login', json={'password':password}).status_code == 200
+            initial = local.get('api/state').json()
+            assert initial['join_url'] == details['url']
+            invite = parse_qs(urlsplit(details['url']).fragment)['invite'][0]
+            assert local.post('api/admin/join', json={'name':'Host PC'}).status_code == 200
+            public.headers.update({'Cookie':'pose_session='+local.cookies['pose_session'],
+                'Host':urlsplit(admin_origin).netloc, 'X-Forwarded-For':'127.0.0.1',
+                'X-Forwarded-Host':urlsplit(admin_origin).netloc, 'X-Forwarded-Proto':'http'})
+            assert public.post('api/admin/login', json={'password':password}).status_code == 403
+            assert public.post('api/admin/action', json={'action':'end'}).status_code == 403
+            assert public.get('api/state').json()['players'] == []
+            public.headers.clear()
+            assert public.post('api/join', json={'name':'Guest','invite_token':invite}).status_code == 200
+            assert public.get('api/state').json()['players']
+            assert not local.get('api/state?participant=1').json()['admin']
+            local.post('api/admin/action', json={'action':'end'})
+            local.post('api/admin/action', json={'action':'new_event'})
+            updated = ready(events)
+            assert updated['url'] != details['url']
+            assert updated['admin_url'] == details['admin_url']
+            assert public.get('api/state').json()['players'] == []
+            assert public.post('api/join', json={'name':'Old QR','invite_token':invite}).status_code == 403
+    finally:
+        runtime.stop()
+        worker.join(timeout=15)
+    assert not worker.is_alive()

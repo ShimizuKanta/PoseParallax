@@ -72,12 +72,12 @@ def test_https_onboarding_stop_restart(tmp_path, monkeypatch):
             assert kind == 'ready', details
             context = ssl.create_default_context(cafile=str(tmp_path / 'tls/root-ca.pem'))
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=context))
-            with opener.open(details['url'] + 'api/health', timeout=5) as response:
+            with opener.open(details['url'].split('#')[0] + 'api/health', timeout=5) as response:
                 assert response.status == 200
-            with opener.open(details['setup_url'] + 'pose-parallax-ca.cer', timeout=5) as response:
+            with opener.open(details['setup_url'].split('#')[0] + 'pose-parallax-ca.cer', timeout=5) as response:
                 assert x509.load_der_x509_certificate(response.read())
             with pytest.raises(urllib.error.HTTPError) as exc:
-                opener.open(details['setup_url'] + 'api/state', timeout=5)
+                opener.open(details['setup_url'].split('#')[0] + 'api/state', timeout=5)
             assert exc.value.code == 426
             password = (tmp_path / 'admin-password.txt').read_text()
             if previous_password:

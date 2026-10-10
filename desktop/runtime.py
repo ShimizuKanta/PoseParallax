@@ -59,7 +59,7 @@ class Runtime:
         self.stop_requested.set()
 
     def run(self):
-        listener, setup, tunnel = None, None, None
+        listener, admin_listener, setup, tunnel = None, None, None, None
         previous = {key: os.environ.get(key) for key in ('POSE_DATA_DIR', 'POSE_LAN_IP', 'POSE_SETUP_URL', 'POSE_PUBLIC_URL')}
         try:
             if self.stop_requested.is_set():
@@ -83,11 +83,19 @@ class Runtime:
             listener.listen(128)
             listener.setblocking(False)
             local_url = f"{'https' if tls else 'http'}://{address}:{listener.getsockname()[1]}/"
+            admin_listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            if os.name == 'nt':
+                admin_listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            admin_listener.bind(('127.0.0.1', 0))
+            admin_listener.listen(128)
+            admin_listener.setblocking(False)
+            admin_port = admin_listener.getsockname()[1]
+            admin_url = f'http://127.0.0.1:{admin_port}/admin'
             setup_url = None
             os.environ.update(POSE_DATA_DIR=str(self.directory), POSE_PUBLIC_URL=local_url)
             os.environ.pop('POSE_SETUP_URL', None)
             if tls:
-                setup = create_setup_server(self.host, self.setup_port, local_url, tls)
+                setup = create_setup_server(self.host, self.setup_port, local_url, tls, allow_admin=False)
                 setup_url = f'http://{address}:{setup.server_port}/'
                 os.environ['POSE_SETUP_URL'] = setup_url
             if not ipaddress.ip_address(address).is_loopback:
@@ -95,11 +103,14 @@ class Runtime:
             else:
                 os.environ.pop('POSE_LAN_IP', None)
             from server.app import create_app
-            app = create_app(self.directory)
+            app = create_app(self.directory, local_admin_port=admin_port)
             server = uvicorn.Server(uvicorn.Config(app, host=bind_host,
                 port=bind_port, ssl_certfile=str(tls.cert) if tls else None,
                 ssl_keyfile=str(tls.key) if tls else None, proxy_headers=True,
                 forwarded_allow_ips='127.0.0.1', loop='asyncio', http='h11', ws='websockets',
+                log_config=None, ws_max_size=8192, timeout_graceful_shutdown=5))
+            admin_server = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=admin_port,
+                lifespan='off', proxy_headers=False, loop='asyncio', http='h11', ws='websockets',
                 log_config=None, ws_max_size=8192, timeout_graceful_shutdown=5))
 
             async def serve():
@@ -109,13 +120,20 @@ class Runtime:
                     except SystemExit as exc:
                         raise RuntimeError('サーバー初期化に失敗しました。ログを確認してください。') from exc
                 task = asyncio.create_task(guarded_serve())
+                admin_task = asyncio.create_task(admin_server.serve(sockets=[admin_listener]))
                 startup = None
                 announced = False
+                announced_url = None
                 try:
                     while not task.done():
+                        if admin_task.done() and not self.stop_requested.is_set():
+                            await admin_task
+                            raise RuntimeError('管理画面のサーバーが停止しました。')
                         if self.stop_requested.is_set():
-                            server.should_exit = True
-                        elif server.started and not announced:
+                            admin_server.should_exit = True
+                            if admin_task.done():
+                                server.should_exit = True
+                        elif server.started and admin_server.started and not announced:
                             if tunnel and startup is None:
                                 self.notify('progress', '参加用のHTTPS URLを取得しています…')
                                 startup = asyncio.create_task(asyncio.to_thread(tunnel.start, local_url, self.stop_requested))
@@ -124,10 +142,14 @@ class Runtime:
                                 if url and not self.stop_requested.is_set():
                                     app.state.public_url = url
                                     os.environ['POSE_PUBLIC_URL'] = url
-                                    self.notify('ready', {'url': url, 'admin_url': local_url + 'admin',
-                                        'setup_url': setup_url, 'fingerprint': tls.fingerprint if tls else None,
-                                        'mode': self.mode})
                                     announced = True
+                        if announced:
+                            invite_url = app.state.invitation_url(local_url)
+                            if invite_url != announced_url:
+                                self.notify('ready', {'url': invite_url, 'admin_url': admin_url,
+                                    'setup_url': setup_url + '#invite=' + app.state.invitation_token() if setup_url else None, 'fingerprint': tls.fingerprint if tls else None,
+                                    'mode': self.mode})
+                                announced_url = invite_url
                         if announced and tunnel and tunnel.poll() is not None:
                             raise RuntimeError('インターネット接続が終了しました。「サーバー起動」で接続し直してください。')
                         await asyncio.sleep(.1)
@@ -141,9 +163,10 @@ class Runtime:
                             await startup
                         except Exception:
                             pass
-                    if not task.done():
-                        server.should_exit = True
-                        await task
+                    admin_server.should_exit = True
+                    await asyncio.gather(admin_task, return_exceptions=True)
+                    server.should_exit = True
+                    await asyncio.gather(task, return_exceptions=True)
             asyncio.run(serve())
         except (Exception, SystemExit) as exc:
             import logging
@@ -156,6 +179,8 @@ class Runtime:
                 setup.shutdown(); setup.server_close()
             if listener:
                 listener.close()
+            if admin_listener:
+                admin_listener.close()
             for key, value in previous.items():
                 if value is None:
                     os.environ.pop(key, None)
