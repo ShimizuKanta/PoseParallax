@@ -231,5 +231,15 @@
   "フラミンゴの4": "Flamingo four",
   "自分のお手本の視点に戻す": "Reset to my target view",
   "自分の2Dお手本": "My 2D target",
+  "ポーズ役の選び方": "Poser selection",
+  "自動（順番を均等に）": "Automatic (fair rotation)",
+  "固定の変更は次に準備するラウンドから適用します。": "Changes apply to the next round you prepare.",
+  "固定するポーズ役を参加者から選んでください。": "Select an active participant as the fixed poser.",
+  "このPCでポーズ役として参加": "Join as the poser on this PC",
+  "このPCの表示名": "Display name for this PC",
+  "管理者PC": "Admin PC",
+  "このPCを参加させてポーズ役に固定": "Join this PC and fix it as the poser",
+  "このPCの参加画面を開く": "Open this PC's participant screen",
+  "参加画面は別タブで開きます。管理画面もそのまま操作できます。": "The participant screen opens in another tab. You can continue using the admin screen.",
   "この仰角範囲ではカメラの高さが床から50cm未満になります。仰角の最大値を上げてください。": "This elevation range places the camera below 50 cm above the floor. Increase the maximum elevation."
 }

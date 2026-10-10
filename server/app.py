@@ -22,6 +22,7 @@ from .storage import Store
 
 ROOT = Path(__file__).resolve().parent.parent
 COOKIE = "pose_session"
+PARTICIPANT_COOKIE = "pose_pc_participant"
 
 
 class JoinBody(BaseModel):
@@ -87,7 +88,7 @@ def create_app(data_dir=None, admin_password=None):
                             with suppress(Exception):
                                 await ws.close(code=4403)
                             continue
-                    outgoing.append(send(ws, snapshot(auth, str(ws.url))))
+                    outgoing.append(send(ws, snapshot(auth, str(ws.url), peer["participant_token"])))
                 if outgoing:
                     await asyncio.gather(*outgoing)
 
@@ -104,10 +105,14 @@ def create_app(data_dir=None, admin_password=None):
 
     app = FastAPI(title="Pose Parallax", lifespan=lifespan, docs_url=None, redoc_url=None)
 
-    def snapshot(identity, base_url):
+    def snapshot(identity, base_url, participant_token=None):
         result = app.state.game.snapshot(identity)
         result["join_url"] = join_url(base_url, app.state.lan_ip, app.state.public_url)
         result["setup_url"] = os.environ.get("POSE_SETUP_URL")
+        participant = app.state.store.auth(participant_token)
+        pid = participant.get("player_id") if participant else None
+        result["admin_player_id"] = (pid if result["admin"] and
+            app.state.game.state["players"].get(pid, {}).get("active") else None)
         return result
 
     def auth(request):
@@ -154,7 +159,30 @@ def create_app(data_dir=None, admin_password=None):
 
     @app.get("/api/state")
     async def state(request: Request):
-        return snapshot(auth(request), str(request.base_url))
+        identity = (app.state.store.auth(request.cookies.get(PARTICIPANT_COOKIE))
+                    if request.query_params.get("participant") == "1" else auth(request))
+        return snapshot(identity, str(request.base_url), request.cookies.get(PARTICIPANT_COOKIE))
+
+    @app.post("/api/admin/join")
+    async def admin_join(body: JoinBody, request: Request, response: Response):
+        admin(request)
+        old = request.cookies.get(PARTICIPANT_COOKIE)
+        identity = app.state.store.auth(old)
+        if identity and identity["player_id"] in app.state.game.state["players"]:
+            player = app.state.game.state["players"][identity["player_id"]]
+            if player["active"]:
+                return {"player_id": player["id"]}
+            raise HTTPException(403, "このゲームから退出しました。次のグループの受付をお待ちください。")
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(422, "表示名を入力してください。")
+        pid = app.state.game.join(name)
+        app.state.game.set_poser(pid)
+        if old:
+            app.state.store.revoke(old)
+        response.set_cookie(PARTICIPANT_COOKIE, app.state.store.session("player", pid),
+                            max_age=86400, httponly=True, secure=request.url.scheme == "https", samesite="strict")
+        return {"player_id": pid}
 
     @app.post("/api/join")
     async def join(body: JoinBody, request: Request, response: Response):
@@ -213,7 +241,7 @@ def create_app(data_dir=None, admin_password=None):
 
     @app.websocket("/ws")
     async def websocket(ws: WebSocket):
-        token = ws.cookies.get(COOKIE)
+        token = ws.cookies.get(PARTICIPANT_COOKIE if ws.query_params.get("participant") == "1" else COOKIE)
         identity = app.state.store.auth(token)
         if not identity or not same_origin(ws.headers.get("origin"), ws.headers.get("host")):
             await ws.close(code=4401)
@@ -230,11 +258,11 @@ def create_app(data_dir=None, admin_password=None):
             if old["token"] == token:
                 with suppress(Exception):
                     await old_ws.close(code=4409)
-        peers[ws] = {"token": token, "pid": pid}
+        peers[ws] = {"token": token, "pid": pid, "participant_token": ws.cookies.get(PARTICIPANT_COOKIE)}
         if pid:
             app.state.game.connections.add(pid)
         try:
-            await ws.send_json(snapshot(identity, str(ws.url)))
+            await ws.send_json(snapshot(identity, str(ws.url), ws.cookies.get(PARTICIPANT_COOKIE)))
             invalid = 0
             while True:
                 message = await ws.receive_text()

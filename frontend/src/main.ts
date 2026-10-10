@@ -8,6 +8,7 @@ import { jointNames, joints, type Feedback, type Settings, type State } from './
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const adminPage = location.pathname === '/admin';
+const participantPage = !adminPage && new URLSearchParams(location.search).get('participant') === '1';
 const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]!));
 const time = (seconds: number | null) => seconds === null ? '—' : `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toFixed(1).padStart(4, '0')}`;
 const phaseNames = { waiting: "参加受付", round_setup: "ラウンド準備", playing: "プレイ中", round_result: "ラウンド結果", final_result: "最終結果" };
@@ -17,7 +18,7 @@ let viewKey = '', disposePoser: (() => void) | null = null, serverOffset = 0, re
 let reconnectTimer = 0, pollingTimer = 0, cameraReady = false;
 let lastFeedback: Feedback | null = null;
 
-app.innerHTML = `<header><a class="brand" href="${adminPage ? '/admin' : '/'}"><span class="brand-icon">P<span>↗</span></span><span>POSE<span class="brand-light"> PARALLAX</span></span></a><div class="header-tools"><label class="language-label"><span class="sr-only">Language / 言語</span><select id="language" aria-label="Language / 言語"><option data-language value="ja">日本語</option><option data-language value="en">English</option></select></label><span class="connection" id="connection">${t("接続中")}</span></div></header>
+app.innerHTML = `<header><a class="brand" href="${adminPage ? '/admin' : participantPage ? '/?participant=1' : '/'}"><span class="brand-icon">P<span>↗</span></span><span>POSE<span class="brand-light"> PARALLAX</span></span></a><div class="header-tools"><label class="language-label"><span class="sr-only">Language / 言語</span><select id="language" aria-label="Language / 言語"><option data-language value="ja">日本語</option><option data-language value="en">English</option></select></label><span class="connection" id="connection">${t("接続中")}</span></div></header>
   <main id="main"><section class="card"><p>${t("会場に接続しています…")}</p></section></main>
   <footer><span>${t("視点が変わる。チームがつながる。")}</span><a href="${adminPage ? '/' : '/admin'}">${adminPage ? t("参加者ページ") : t("管理者")}</a></footer>
   <div id="toast" role="status" aria-live="polite"></div>`;
@@ -53,7 +54,7 @@ function connect() {
   clearTimeout(reconnectTimer);
   reconnectTimer = 0;
   if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
-  socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`);
+  socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws${participantPage ? '?participant=1' : ''}`);
   socket.onopen = () => { retry = 0; connection(t("接続済み"), true); };
   socket.onmessage = event => {
     const data = JSON.parse(event.data);
@@ -70,7 +71,7 @@ function connect() {
   socket.onerror = () => connection(t("接続を確認中…"));
 }
 async function refresh() {
-  try { update(await api('state', undefined, 'GET')); }
+  try { update(await api(participantPage ? 'state?participant=1' : 'state', undefined, 'GET')); }
   catch (error) { connection(t("サーバーに接続できません")); toast(String(error).replace(/^Error: /, '')); }
 }
 function poll() {
@@ -191,6 +192,9 @@ function renderAdmin() {
     <div class="admin-grid"><section class="card"><div class="section-head"><h2>${t("ゲーム進行")}</h2><span class="pill" id="phase-label"></span></div><div id="admin-summary"><div class="admin-stats"><div><strong id="admin-player-count">0</strong><span>${t("参加者")}</span></div><div><strong id="admin-round-number">—</strong><span>${t("ラウンド")}</span></div><div><strong data-timer>00:00.0</strong><span>${t("経過時間")}</span></div></div><p id="admin-round-status" class="small"></p></div><div id="admin-actions" class="actions"></div></section>
     <section class="card qr-card"><canvas id="qr"></canvas><div><span class="eyebrow">SCAN TO JOIN</span><h2>${t("このQRから参加")}</h2><p class="small">${t(state!.setup_url ? '会場Wi-Fiに接続して開いてください' : 'QRを読み取って参加してください')}</p><input id="join-url" aria-label="${t('参加URL')}" type="url" value="${escape(state!.join_url ?? '')}"/><button id="update-qr" class="quiet">${t("QRを更新")}</button>${state!.setup_url ? `<button id="setup-qr" class="quiet">${t("初期設定QRを表示")}</button><a class="small" href="${escape(state!.setup_url)}" target="_blank" rel="noreferrer">${t("証明書の設定手順 ↗")}</a>` : ''}</div></section></div>
     <section class="card"><div class="section-head"><h2>${t("チームメンバー")}</h2><span id="member-count" class="pill"></span></div><div id="roster"></div></section>
+    <section class="card"><label>${t('ポーズ役の選び方')}<select id="fixed-poser"></select></label><p class="small">${t('固定の変更は次に準備するラウンドから適用します。')}</p>
+    <details><summary>${t('このPCでポーズ役として参加')}</summary><form id="admin-join-form"><label>${t('このPCの表示名')}<input name="name" value="${escape(t('管理者PC'))}" maxlength="30" required /></label><button>${t('このPCを参加させてポーズ役に固定')}</button></form>
+    <a id="admin-participant-link" class="participant-link" href="/?participant=1" target="_blank" rel="noopener" hidden>${t('このPCの参加画面を開く')}</a><p class="small">${t('参加画面は別タブで開きます。管理画面もそのまま操作できます。')}</p></details></section>
     <details class="card settings-panel"><summary>${t("判定・ゲーム設定")}<span class="small">${t("デフォルトとして保存")}</span></summary><p class="small">${t("変更は次に準備するラウンドから適用します。現在のラウンドの条件は変わりません。")}</p>
     <form id="settings-form"><div class="form-grid"><label>${t("クリア方式")}<select name="clear_mode"><option value="latched" ${s.clear_mode === 'latched' ? 'selected' : ''}>${t("一度達成すれば確定")}</option><option value="simultaneous" ${s.clear_mode === 'simultaneous' ? 'selected' : ''}>${t("全員が同時に一致")}</option></select></label>
     ${field('rounds', t("ラウンド数"), 1, 100)}${field('round_seconds', t("制限時間（秒）"), 15, 1800)}${field('hold_seconds', t("一致を保つ時間（秒）"), 0, 10, .1)}
@@ -218,6 +222,25 @@ function renderAdmin() {
   });
   document.querySelector('#logout')!.addEventListener('click', async () => {
     await api('logout'); socket?.close(); await refresh();
+  });
+  document.querySelector('#fixed-poser')!.addEventListener('change', async event => {
+    const select = event.currentTarget as HTMLSelectElement;
+    select.disabled = true;
+    await action('set_poser', { player_id: select.value || null });
+    select.disabled = false;
+  });
+  document.querySelector('#admin-join-form')!.addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
+    const button = form.querySelector('button')!;
+    button.disabled = true;
+    try {
+      await api('admin/join', { name: new FormData(form).get('name') });
+      // A fresh admin socket receives the newly created participant cookie.
+      if (socket) { socket.onclose = null; socket.close(); socket = null; }
+      await refresh(); connect();
+    } catch (error) { toast(t((error as Error).message)); }
+    finally { button.disabled = false; }
   });
   document.querySelector('#settings-form')!.addEventListener('submit', async event => {
     event.preventDefault(); const data = new FormData(event.currentTarget as HTMLFormElement);
@@ -262,6 +285,17 @@ function updateLive() {
     }
   }
   if (s.admin && adminPage) {
+    const select = document.querySelector<HTMLSelectElement>('#fixed-poser')!;
+    const optionsKey = JSON.stringify([s.players.map(p => [p.id, p.name]), language]);
+    if (select.dataset.key !== optionsKey) {
+      select.innerHTML = `<option value="">${t('自動（順番を均等に）')}</option>` + s.players.map(p => `<option value="${p.id}" data-user-content>${escape(p.name)}</option>`).join('');
+      select.dataset.key = optionsKey;
+    }
+    select.value = s.fixed_poser_id ?? '';
+    const pcJoined = !!s.admin_player_id;
+    document.querySelector<HTMLFormElement>('#admin-join-form')!.hidden = pcJoined;
+    document.querySelector<HTMLAnchorElement>('#admin-participant-link')!.hidden = !pcJoined;
+    document.querySelector<HTMLButtonElement>('#admin-join-form button')!.disabled = !s.registration_open || s.phase !== 'waiting' || s.players.length >= 50;
     const readyCount = s.players.filter(p => p.ready && p.connected).length;
     set('admin-player-count', String(s.players.length));
     set('admin-round-number', String(r?.number ?? '—'));

@@ -188,6 +188,9 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; margin: 24px 0 0;
 .target-dialog canvas { width: 100%; height: min(58dvh, 500px); object-fit: contain; }
 .target-dialog { text-align: center; }
 .result-history { margin-top: 8px; }
+.participant-link { display: inline-block; margin: 16px 0; text-decoration: underline; }
+.participant-link[hidden], #admin-join-form[hidden] { display: none; }
+#admin-join-form { margin-top: 16px; }
 .pose-review-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: center; }
 .pose-review-grid:not(:has(.review-target)) { grid-template-columns: minmax(0, 1fr); }
 .pose-review > button { margin-bottom: 12px; }
