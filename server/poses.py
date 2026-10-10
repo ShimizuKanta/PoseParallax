@@ -238,5 +238,39 @@ def make_view(pose, settings, rng=random):
         if any(math.dist(points[i][:2], points[i + 1][:2]) / height < settings.min_side_separation
                for i in (11, 13, 15, 23, 25, 27)):
             continue
-        return {"azimuth": a, "elevation": e, "target": points}
+        return {"azimuth": a, "elevation": e, "target": points,
+                "camera": {"distance": VIEW_DISTANCE, "target_height": VIEW_TARGET_HEIGHT,
+                           "focal_scale": VIEW_FOCAL_SCALE}}
     raise ValueError("この視点条件では問題を作れません。角度範囲を広げるか、関節点の最小間隔・手足の長さの条件を緩めてください。")
+
+
+def review_view(pose, view):
+    """Recover the recorded camera; older rounds stored only angles and targets."""
+    camera = view.get("camera")
+    if camera is None:
+        # Solve u * distance - x * focal_scale = u * depth_offset for
+        # both screen axes. This recovers both legacy 4.5m and recent 3m
+        # targets, even after defaults change, without modifying saved data.
+        a, e = map(math.radians, (view["azimuth"], view["elevation"]))
+        right = (math.cos(a), 0, -math.sin(a))
+        up = (-math.sin(a) * math.sin(e), math.cos(e), -math.cos(a) * math.sin(e))
+        outward = (math.sin(a) * math.cos(e), math.sin(e), math.cos(a) * math.cos(e))
+        aa = ab = bb = ac = bc = 0.0
+        for i in JOINTS:
+            x, y, z = pose["points"][i]
+            p = (x, y - VIEW_TARGET_HEIGHT, z)
+            depth_offset = sum(v * w for v, w in zip(p, outward))
+            for axis, u in ((right, view["target"][i][0] - .5),
+                            (up, .5 - view["target"][i][1])):
+                b = -sum(v * w for v, w in zip(p, axis))
+                c = u * depth_offset
+                aa += u * u; ab += u * b; bb += b * b
+                ac += u * c; bc += b * c
+        determinant = aa * bb - ab * ab
+        distance, focal_scale = VIEW_DISTANCE, VIEW_FOCAL_SCALE
+        if determinant > 1e-12:
+            distance = (ac * bb - bc * ab) / determinant
+            focal_scale = (aa * bc - ab * ac) / determinant
+        camera = {"distance": distance, "target_height": VIEW_TARGET_HEIGHT,
+                  "focal_scale": focal_scale}
+    return {"azimuth": view["azimuth"], "elevation": view["elevation"], **camera}

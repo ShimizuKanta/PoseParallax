@@ -167,12 +167,19 @@ function resultMarkup() {
     <details class="result-history"><summary>${t('過去のラウンド・参加者別結果')}</summary><div class="result-list">${history.map(r => `<article class="result-item"><div><span class="eyebrow">ROUND ${r.number}</span><h3><span data-user-content>${escape(r.participants[r.poser_id])}</span><span class="small"> · ${t('ポーズ役')}</span></h3><span class="${r.outcome === 'cleared' ? 'accent' : 'muted'}">${t(outcomeNames[r.outcome])}</span><details><summary>${t("参加者ごとの結果")}</summary>${Object.entries(r.participants).filter(([pid]) => pid !== r.poser_id).map(([pid, name]) => `<p><span data-user-content>${escape(name)}</span> <strong>${r.cleared[pid] && r.started_at !== null ? time(r.cleared[pid] - r.started_at) : t("未クリア")}</strong></p>`).join('')}</details></div><strong class="history-time">${time(r.elapsed)}</strong></article>`).join('')}</div></details>`;
 }
 function renderResults() {
+  const r = state!.round;
+  const review = r?.target_view && r.target;
   main.innerHTML = `${hero(state!.phase === 'final_result' ? 'THANK YOU FOR PLAYING' : 'ROUND RESULT', state!.phase === 'final_result' ? t("みんなでつくった記録。") : t("ひとつのポーズ、みんなの視点。"), state!.phase === 'final_result' ? t("おつかれさまでした！") : t("管理者が次のラウンドを準備しています。"))}
-    <section class="card">${resultMarkup()}</section><div id="result-pose" class="result-pose"></div>`;
+    <section class="card">${resultMarkup()}</section>${r?.pose ? `<section class="card pose-review">${review ? `<button id="reset-target-view" class="secondary" disabled>${t('自分のお手本の視点に戻す')}</button>` : ''}<div class="pose-review-grid"><div id="result-pose" class="result-pose"></div>${review ? `<div class="review-target"><h3>${t('自分の2Dお手本')}</h3><canvas id="review-target" width="720" height="600"></canvas></div>` : ''}</div>${skeletonLegend()}</section>` : ''}`;
+  if (review) drawSkeleton(document.querySelector('#review-target')!, r!.target!);
   const pose = state!.round?.pose;
   if (pose) {
     const key = viewKey;
-    void import('./poser').then(({ showPoser }) => { if (viewKey === key) disposePoser = showPoser(document.querySelector('#result-pose')!, pose.points, state!.me === state!.round!.poser_id); });
+    void import('./poser').then(({ showPoser }) => {
+      if (viewKey === key) disposePoser = showPoser(document.querySelector('#result-pose')!, pose.points,
+        state!.me === r!.poser_id, { targetView: r?.target_view,
+          resetButton: document.querySelector<HTMLButtonElement>('#reset-target-view') ?? undefined });
+    });
   }
 }
 function field(name: keyof Settings, label: string, min: number, max: number, step = 1) {

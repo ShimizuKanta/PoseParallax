@@ -4,7 +4,7 @@ import time
 import uuid
 from .matching import match
 from .models import Settings
-from .poses import POSES, make_view
+from .poses import POSES, make_view, review_view
 
 
 class GameError(ValueError):
@@ -245,6 +245,8 @@ class Game:
                 current["pose"] = copy.deepcopy(r["pose"])
             if pid in r["views"] and pid not in r["excluded"]:
                 current["target"] = r["views"][pid]["target"]
+                if self.state["phase"] in ("round_result", "final_result"):
+                    current["target_view"] = review_view(r["pose"], r["views"][pid])
         # Do not leak other observers' views/angles before the game ends.
         history = [{k: copy.deepcopy(item[k]) for k in
                     ("id", "number", "poser_id", "participants", "elapsed", "outcome", "cleared", "started_at")}
