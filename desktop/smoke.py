@@ -42,7 +42,8 @@ def run(destination, mode='lan'):
         parsed = urlsplit(details['url'])
         origin = urlunsplit(parsed._replace(fragment=''))
         invite = parse_qs(parsed.fragment)['invite'][0]
-        for path in ('api/health', '', 'inference-worker.js', 'models/pose_landmarker_lite.task'):
+        for path in ('api/health', '', 'inference-worker.js', 'models/pose_landmarker_lite.task',
+                     'licenses/npm/three/LICENSE', 'licenses/mediapipe/LICENSE', 'licenses/PoseParallax-LICENSE'):
             with opener.open(origin + path, timeout=10) as response:
                 if response.status != 200 or not response.read(1):
                     raise RuntimeError('Invalid bundled response: ' + path)

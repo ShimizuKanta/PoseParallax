@@ -3,12 +3,28 @@ import socket
 import ssl
 import threading
 import urllib.request
+from types import SimpleNamespace
+from urllib.parse import urlsplit, parse_qs
 
 import pytest
 pytest.importorskip('cryptography', reason='Install requirements-desktop.txt for desktop tests')
 from cryptography import x509
 from desktop.certificates import ensure_tls
 from desktop.runtime import InstanceLock, Runtime, data_directory
+
+
+def test_setup_link_preserves_invitation_and_language(monkeypatch):
+    from desktop.gui import Window
+    window = object.__new__(Window)
+    window.urls = {'setup_url': 'http://127.0.0.1:8000/#invite=original-token'}
+    opened = []
+    monkeypatch.setattr('desktop.gui.webbrowser.open', opened.append)
+    for language in ('ja', 'en'):
+        window.translator = SimpleNamespace(language=language)
+        window.open_setup()
+        url = urlsplit(opened[-1])
+        assert parse_qs(url.query) == {'lang': [language]}
+        assert parse_qs(url.fragment) == {'invite': ['original-token']}
 
 
 def test_persistent_directory(monkeypatch, tmp_path):

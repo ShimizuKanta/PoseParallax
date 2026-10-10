@@ -8,6 +8,7 @@ import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
 import webbrowser
+from urllib.parse import urlsplit, urlunsplit
 
 import qrcode
 from .runtime import InstanceLock, Runtime, data_directory
@@ -215,7 +216,8 @@ class Window:
     def open_setup(self):
         if self.urls:
             if self.urls.get('setup_url'):
-                webbrowser.open(self.urls['setup_url'] + '?lang=' + self.translator.language)
+                url = urlsplit(self.urls['setup_url'])
+                webbrowser.open(urlunsplit(url._replace(query='lang=' + self.translator.language)))
 
     def open_folder(self):
         if os.name == 'nt':

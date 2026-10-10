@@ -1,5 +1,8 @@
 # Build on Windows with: python -m PyInstaller packaging/windows/PoseParallax.spec
 from pathlib import Path
+from importlib.metadata import distributions
+import shutil
+import sys
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 
 root = Path(SPECPATH).parents[1]
@@ -17,3 +20,15 @@ pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='PoseParallax',
           debug=False, bootloader_ignore_signals=False, strip=False, upx=False, console=False)
 coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name='PoseParallax')
+destination = Path(coll.name)
+shutil.copy(root / 'LICENSE', destination / 'LICENSE')
+shutil.copytree(root / 'dist/licenses', destination / 'licenses', dirs_exist_ok=True)
+shutil.copy(connector / 'LICENSE.txt', destination / 'licenses/cloudflared-LICENSE.txt')
+# Keep the installed Python wheels' original license/notice files.
+for package in distributions():
+    for file in package.files or []:
+        if '/licenses/' in str(file) or Path(file).name.upper().startswith(('LICENSE', 'LICENCE', 'COPYING', 'NOTICE')):
+            target = destination / 'licenses/python' / package.metadata['Name'] / str(file)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(package.locate_file(file), target)
+shutil.copy(Path(sys.base_prefix) / 'LICENSE.txt', destination / 'licenses/Python-LICENSE.txt')
