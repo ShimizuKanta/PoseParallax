@@ -193,7 +193,9 @@ POSES = [
 
 
 VIEW_TARGET_HEIGHT = .95
-VIEW_DISTANCE = 4.5
+VIEW_DISTANCE = 3.0
+# Wider 53.13-degree field of view keeps the full body framed at 3 metres.
+VIEW_FOCAL_SCALE = 1.0
 MIN_CAMERA_HEIGHT = .50
 MIN_VIEW_ELEVATION = math.degrees(math.asin((MIN_CAMERA_HEIGHT - VIEW_TARGET_HEIGHT) / VIEW_DISTANCE))
 
@@ -207,8 +209,8 @@ def project(points, azimuth, elevation):
     for x, y, z in points:
         p = (x, y - VIEW_TARGET_HEIGHT, z)
         depth = VIEW_DISTANCE - sum(v * w for v, w in zip(p, outward))
-        result.append([.5 + 1.6 * sum(v * w for v, w in zip(p, right)) / depth,
-                       .5 - 1.6 * sum(v * w for v, w in zip(p, up)) / depth, 1.0])
+        result.append([.5 + VIEW_FOCAL_SCALE * sum(v * w for v, w in zip(p, right)) / depth,
+                       .5 - VIEW_FOCAL_SCALE * sum(v * w for v, w in zip(p, up)) / depth, 1.0])
     return result
 
 

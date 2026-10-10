@@ -43,7 +43,7 @@ def test_view_range_entirely_below_camera_height_limit_fails_before_projection(m
         pytest.fail("An infeasible camera must not be projected")
     monkeypatch.setattr("server.poses.project", unexpected_projection)
     with pytest.raises(ValueError, match="50cm"):
-        make_view(POSES[0], Settings(elevation_min=-30, elevation_max=-6))
+        make_view(POSES[0], Settings(elevation_min=-30, elevation_max=MIN_VIEW_ELEVATION - .01))
 
 
 def grid_points(nearby=False):
