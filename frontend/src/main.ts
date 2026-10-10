@@ -179,7 +179,7 @@ function renderResults() {
     const key = viewKey;
     void import('./poser').then(({ showPoser }) => {
       if (viewKey === key) disposePoser = showPoser(document.querySelector('#result-pose')!, pose.points,
-        state!.me === r!.poser_id, { targetView: r?.target_view,
+        true, { targetView: r?.target_view,
           resetButton: document.querySelector<HTMLButtonElement>('#reset-target-view') ?? undefined });
     });
   }

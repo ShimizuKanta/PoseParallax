@@ -51,6 +51,8 @@ test('observer can rotate, zoom and reset the result to their target; poser has 
   await expect(page.locator('#review-target')).toBeVisible();
   const canvas = page.locator('#result-pose canvas');
   const settle = () => page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await settle();
+  const observerFront = await canvas.screenshot();
   await reset.click();
   await settle();
   const original = await canvas.screenshot();
@@ -78,4 +80,8 @@ test('observer can rotate, zoom and reset the result to their target; poser has 
   await page.reload();
   await expect(canvas).toBeVisible();
   await expect(page.locator('#reset-target-view')).toHaveCount(0);
+  // Both result roles see the same face from the default frontal view.
+  await page.setViewportSize({width:390,height:844});
+  await settle();
+  expect((await canvas.screenshot()).equals(observerFront)).toBe(true);
 });

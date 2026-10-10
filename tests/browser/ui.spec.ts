@@ -30,6 +30,14 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }
     const layout = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight, screenWidth: innerWidth, screenHeight: innerHeight }));
     expect(layout.width).toBeLessThanOrEqual(layout.screenWidth);
     expect(layout.height).toBeLessThanOrEqual(layout.screenHeight + 1);
+    const cameraBox = (await page.locator('.camera-stage').boundingBox())!;
+    expect(cameraBox.width).toBe(viewport.width);
+    expect(cameraBox.height).toBeGreaterThan(viewport.height * .84);
+    for (const selector of ['#show-details', '#enlarge-target', '.match-strip']) {
+      const box = (await page.locator(selector).boundingBox())!;
+      expect(box.y).toBeGreaterThanOrEqual(cameraBox.y);
+      expect(box.y + box.height).toBeLessThanOrEqual(cameraBox.y + cameraBox.height);
+    }
     await page.screenshot({ path: info.outputPath(`observer-en-${viewport.width}.png`) });
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
