@@ -1012,10 +1012,10 @@
 <text x="16" y="25">18 Gentle skiing</text><text x="16" y="43" class="caption">skiing</text>
 <path d="M11 245h130" stroke="#35475c"/><text class="caption" x="60" y="259">0°</text>
 <path d="M97.16 125.47L54.84 125.47" stroke="#80e4df" stroke-width="4" stroke-linecap="round"/>
-<path d="M97.16 125.47L113.20 142.85" stroke="#75df91" stroke-width="4" stroke-linecap="round"/>
-<path d="M113.20 142.85L113.72 148.02" stroke="#75df91" stroke-width="4" stroke-linecap="round"/>
-<path d="M54.84 125.47L37.02 144.09" stroke="#609ce8" stroke-width="4" stroke-linecap="round"/>
-<path d="M37.02 144.09L38.28 152.26" stroke="#609ce8" stroke-width="4" stroke-linecap="round"/>
+<path d="M97.16 125.47L108.61 136.69" stroke="#75df91" stroke-width="4" stroke-linecap="round"/>
+<path d="M108.61 136.69L110.04 159.18" stroke="#75df91" stroke-width="4" stroke-linecap="round"/>
+<path d="M54.84 125.47L43.88 137.61" stroke="#609ce8" stroke-width="4" stroke-linecap="round"/>
+<path d="M43.88 137.61L41.96 160.67" stroke="#609ce8" stroke-width="4" stroke-linecap="round"/>
 <path d="M97.16 125.47L90.72 169.56" stroke="#75df91" stroke-width="4" stroke-linecap="round"/>
 <path d="M54.84 125.47L61.28 169.56" stroke="#609ce8" stroke-width="4" stroke-linecap="round"/>
 <path d="M90.72 169.56L61.28 169.56" stroke="#80e4df" stroke-width="4" stroke-linecap="round"/>
@@ -1027,10 +1027,10 @@
 <path d="M76.00 101.89L54.84 125.47" stroke="#80e4df" stroke-width="4" stroke-linecap="round"/>
 <circle cx="97.16" cy="125.47" r="3.5" fill="#75df91"/>
 <circle cx="54.84" cy="125.47" r="3.5" fill="#609ce8"/>
-<circle cx="113.20" cy="142.85" r="3.5" fill="#75df91"/>
-<circle cx="37.02" cy="144.09" r="3.5" fill="#609ce8"/>
-<circle cx="113.72" cy="148.02" r="3.5" fill="#75df91"/>
-<circle cx="38.28" cy="152.26" r="3.5" fill="#609ce8"/>
+<circle cx="108.61" cy="136.69" r="3.5" fill="#75df91"/>
+<circle cx="43.88" cy="137.61" r="3.5" fill="#609ce8"/>
+<circle cx="110.04" cy="159.18" r="3.5" fill="#75df91"/>
+<circle cx="41.96" cy="160.67" r="3.5" fill="#609ce8"/>
 <circle cx="90.72" cy="169.56" r="3.5" fill="#75df91"/>
 <circle cx="61.28" cy="169.56" r="3.5" fill="#609ce8"/>
 <circle cx="95.38" cy="202.18" r="3.5" fill="#75df91"/>
@@ -1040,10 +1040,10 @@
 <circle cx="76.00" cy="101.89" r="11" fill="#80e4df"/>
 <path d="M157 245h130" stroke="#35475c"/><text class="caption" x="206" y="259">60°</text>
 <path d="M225.06 125.47L203.90 125.47" stroke="#80e4df" stroke-width="4" stroke-linecap="round"/>
-<path d="M225.06 125.47L243.77 142.85" stroke="#75df91" stroke-width="4" stroke-linecap="round"/>
-<path d="M243.77 142.85L265.88 148.02" stroke="#75df91" stroke-width="4" stroke-linecap="round"/>
-<path d="M203.90 125.47L200.96 144.09" stroke="#609ce8" stroke-width="4" stroke-linecap="round"/>
-<path d="M200.96 144.09L222.72 152.26" stroke="#609ce8" stroke-width="4" stroke-linecap="round"/>
+<path d="M225.06 125.47L249.25 136.69" stroke="#75df91" stroke-width="4" stroke-linecap="round"/>
+<path d="M249.25 136.69L260.78 159.18" stroke="#75df91" stroke-width="4" stroke-linecap="round"/>
+<path d="M203.90 125.47L216.67 137.61" stroke="#609ce8" stroke-width="4" stroke-linecap="round"/>
+<path d="M216.67 137.61L225.51 160.67" stroke="#609ce8" stroke-width="4" stroke-linecap="round"/>
 <path d="M225.06 125.47L235.73 169.56" stroke="#75df91" stroke-width="4" stroke-linecap="round"/>
 <path d="M203.90 125.47L221.01 169.56" stroke="#609ce8" stroke-width="4" stroke-linecap="round"/>
 <path d="M235.73 169.56L221.01 169.56" stroke="#80e4df" stroke-width="4" stroke-linecap="round"/>
@@ -1055,10 +1055,10 @@
 <path d="M205.35 101.89L203.90 125.47" stroke="#80e4df" stroke-width="4" stroke-linecap="round"/>
 <circle cx="225.06" cy="125.47" r="3.5" fill="#75df91"/>
 <circle cx="203.90" cy="125.47" r="3.5" fill="#609ce8"/>
-<circle cx="243.77" cy="142.85" r="3.5" fill="#75df91"/>
-<circle cx="200.96" cy="144.09" r="3.5" fill="#609ce8"/>
-<circle cx="265.88" cy="148.02" r="3.5" fill="#75df91"/>
-<circle cx="222.72" cy="152.26" r="3.5" fill="#609ce8"/>
+<circle cx="249.25" cy="136.69" r="3.5" fill="#75df91"/>
+<circle cx="216.67" cy="137.61" r="3.5" fill="#609ce8"/>
+<circle cx="260.78" cy="159.18" r="3.5" fill="#75df91"/>
+<circle cx="225.51" cy="160.67" r="3.5" fill="#609ce8"/>
 <circle cx="235.73" cy="169.56" r="3.5" fill="#75df91"/>
 <circle cx="221.01" cy="169.56" r="3.5" fill="#609ce8"/>
 <circle cx="216.36" cy="202.18" r="3.5" fill="#75df91"/>
