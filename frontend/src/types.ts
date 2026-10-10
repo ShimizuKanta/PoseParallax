@@ -23,6 +23,7 @@ export interface State {
   type: 'state'; join_url: string | null; setup_url?: string | null; event_id: string; name: string; phase: 'waiting' | 'round_setup' | 'playing' | 'round_result' | 'final_result';
   registration_open: boolean; me: string | null; admin: boolean; players: Player[];
   round: Round | null; history: Result[]; server_time: number; settings: Settings | null;
+  fixed_poser_id?: string | null; admin_player_id?: string | null;
 }
 export interface Feedback { type: 'feedback'; score: number; matched: boolean; visible: number; reason: string; hold: number; cleared: boolean }
 export const joints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];

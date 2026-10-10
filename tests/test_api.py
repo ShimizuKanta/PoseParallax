@@ -106,3 +106,77 @@ def test_three_bad_frames_disconnect(client):
         with pytest.raises(WebSocketDisconnect):
             while True:
                 ws.receive_json()
+
+
+def test_admin_pc_join_preserves_admin_and_separate_participant_identity(client):
+    assert client.post('/api/admin/join', json={'name':'PC'}).status_code == 403
+    client.post('/api/admin/login', json={'password':PASSWORD})
+    admin_token = client.cookies.get('pose_session')
+    assert client.post('/api/admin/join', json={'name':'   '}).status_code == 422
+    assert client.post('/api/admin/join', json={'name':'PC'}, headers={'origin':'https://evil.example'}).status_code == 403
+    response = client.post('/api/admin/join', json={'name':'Host PC'})
+    assert response.status_code == 200
+    pid = response.json()['player_id']
+    assert client.cookies.get('pose_session') == admin_token
+    assert client.cookies.get('pose_pc_participant') != admin_token
+    assert client.post('/api/admin/join', json={'name':'Duplicate'}).json()['player_id'] == pid
+    state = client.get('/api/state').json()
+    assert state['admin'] and state['admin_player_id'] == pid
+    assert state['fixed_poser_id'] == pid and len(state['players']) == 1
+    participant = client.get('/api/state?participant=1').json()
+    assert participant['me'] == pid and not participant['admin']
+    assert participant['settings'] is None and participant['admin_player_id'] is None
+    assert client.post('/api/admin/action', json={'action':'set_poser','player_id':'unknown'}).status_code == 409
+    assert client.post('/api/admin/action', json={'action':'set_poser'}).status_code == 200
+    assert client.get('/api/state').json()['fixed_poser_id'] is None
+    assert client.post('/api/admin/action', json={'action':'remove','player_id':pid}).status_code == 200
+    assert client.get('/api/state').json()['admin_player_id'] is None
+    assert client.post('/api/admin/join', json={'name':'Again'}).status_code == 403
+    assert client.post('/api/admin/action', json={'action':'end'}).status_code == 200
+    assert client.post('/api/admin/action', json={'action':'new_event'}).status_code == 200
+    assert client.post('/api/admin/join', json={'name':'Next PC'}).json()['player_id'] != pid
+
+
+def test_admin_and_pc_participant_websockets_coexist_and_can_start(client):
+    client.post('/api/admin/login', json={'password':PASSWORD})
+    admin_token = client.cookies.get('pose_session')
+    pc = client.post('/api/admin/join', json={'name':'Host PC'}).json()['player_id']
+    pc_token = client.cookies.get('pose_pc_participant')
+    client.cookies.clear()
+    observer = client.post('/api/join', json={'name':'Observer'}).json()['player_id']
+    observer_token = client.cookies.get('pose_session')
+    assert client.post('/api/admin/action',json={'action':'set_poser','player_id':observer}).status_code == 403
+    with ExitStack() as stack:
+        client.cookies.set('pose_session',admin_token)
+        client.cookies.set('pose_pc_participant',pc_token)
+        admin_ws = stack.enter_context(client.websocket_connect('/ws',headers=ORIGIN))
+        assert admin_ws.receive_json()['admin']
+        pc_ws = stack.enter_context(client.websocket_connect('/ws?participant=1',headers=ORIGIN))
+        assert pc_ws.receive_json()['me'] == pc
+        client.cookies.set('pose_session',observer_token)
+        observer_ws = stack.enter_context(client.websocket_connect('/ws',headers=ORIGIN))
+        assert observer_ws.receive_json()['me'] == observer
+        client.cookies.set('pose_session',admin_token)
+        assert client.post('/api/admin/action',json={'action':'setup'}).status_code == 200
+        r = client.app.state.game.state['round']
+        assert r['poser_id'] == pc
+        for ws in (pc_ws,observer_ws):
+            ws.send_json({'type':'ready','round_id':r['id']})
+        while True:
+            state = admin_ws.receive_json()
+            if all(p['ready'] and p['connected'] for p in state['players']):
+                break
+        assert client.post('/api/admin/action',json={'action':'start'}).status_code == 200
+        assert client.get('/api/state').json()['admin']
+        assert client.get('/api/state?participant=1').json()['phase'] == 'playing'
+
+
+def test_admin_pc_join_obeys_capacity_and_registration(client):
+    client.post('/api/admin/login',json={'password':PASSWORD})
+    for i in range(50):
+        client.app.state.game.join(str(i))
+    assert client.post('/api/admin/join',json={'name':'PC'}).status_code == 409
+    client.app.state.game.remove(next(iter(client.app.state.game.state['players'])))
+    client.app.state.game.action('registration')
+    assert client.post('/api/admin/join',json={'name':'PC'}).status_code == 409
+    assert len(client.app.state.game.active()) == 49

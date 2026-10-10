@@ -292,3 +292,49 @@ def test_any_pose_in_common_pool_can_be_randomly_selected(game, monkeypatch):
         selected.append(game.state['round']['pose']['id'])
         game.finish('skipped')
     assert selected == [p['id'] for p in POSES]
+
+
+def test_fixed_poser_overrides_rotation_and_persists(game):
+    ids = [game.join(name) for name in ('A', 'B', 'C')]
+    game.state['players'][ids[2]]['poser_count'] = 10
+    game.action('set_poser', player_id=ids[2])
+    for _ in range(3):
+        game.setup()
+        assert game.state['round']['poser_id'] == ids[2]
+        assert set(game.state['round']['views']) == set(ids[:2])
+        game.finish('skipped')
+    restored = Game(game.store)
+    assert restored.state['fixed_poser_id'] == ids[2]
+    game.action('set_poser')
+    game.setup()
+    assert game.state['round']['poser_id'] in ids[:2]
+
+
+def test_changing_fixed_poser_applies_to_next_round_and_removal_clears_it(game):
+    ids = [game.join(name) for name in ('A', 'B', 'C')]
+    game.set_poser(ids[0])
+    game.setup()
+    before = copy.deepcopy(game.state['round'])
+    game.set_poser(ids[1])
+    assert game.state['round'] == before
+    game.finish('skipped')
+    game.setup()
+    assert game.state['round']['poser_id'] == ids[1]
+    game.remove(ids[1])
+    assert game.state['fixed_poser_id'] is None
+    assert game.state['round']['outcome'] == 'poser_left'
+    game.action('end')
+    game.action('new_event')
+    assert game.state['fixed_poser_id'] is None
+
+
+def test_invalid_fixed_poser_does_not_change_selection(game):
+    a, b = game.join('A'), game.join('B')
+    game.set_poser(a)
+    with pytest.raises(GameError):
+        game.set_poser('unknown')
+    assert game.state['fixed_poser_id'] == a
+    game.remove(b)
+    with pytest.raises(GameError):
+        game.set_poser(b)
+    assert game.state['fixed_poser_id'] == a

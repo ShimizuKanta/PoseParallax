@@ -24,7 +24,8 @@ class Game:
 
     def empty(self, name):
         return {"id": uuid.uuid4().hex, "name": name, "phase": "waiting", "registration_open": True,
-                "players": {}, "round": None, "history": [], "created_at": self.clock()}
+                "players": {}, "round": None, "history": [], "created_at": self.clock(),
+                "fixed_poser_id": None}
 
     def save(self):
         self.store.put("current", self.state)
@@ -47,6 +48,12 @@ class Game:
     def active(self):
         return [p for p in self.state["players"].values() if p["active"]]
 
+    def set_poser(self, player_id):
+        if player_id is not None and not self.state["players"].get(player_id, {}).get("active"):
+            raise GameError("固定するポーズ役を参加者から選んでください。")
+        self.state["fixed_poser_id"] = player_id
+        self.save()
+
     def setup(self):
         if self.state["phase"] not in ("waiting", "round_result"):
             raise GameError("今は次のラウンドを準備できません。")
@@ -57,8 +64,14 @@ class Game:
             self.state["phase"] = "final_result"
             self.save()
             return
-        fewest = min(p["poser_count"] for p in players)
-        poser = random.choice([p for p in players if p["poser_count"] == fewest])
+        fixed = self.state.get("fixed_poser_id")
+        if fixed:
+            poser = self.state["players"].get(fixed)
+            if not poser or not poser["active"]:
+                raise GameError("固定するポーズ役を参加者から選んでください。")
+        else:
+            fewest = min(p["poser_count"] for p in players)
+            poser = random.choice([p for p in players if p["poser_count"] == fewest])
         # A random ordering makes every pose eligible without tiers or weights.
         # Tight host settings can exclude a pose: try the rest of the same pool,
         # retaining every configured projection constraint and leaving state
@@ -185,6 +198,8 @@ class Game:
         if pid not in self.state["players"]:
             raise GameError("参加者が見つかりません。")
         self.state["players"][pid]["active"] = False
+        if self.state.get("fixed_poser_id") == pid:
+            self.state["fixed_poser_id"] = None
         self.disconnect(pid)
         r = self.state["round"]
         if r and self.state["phase"] in ("round_setup", "playing"):
@@ -208,6 +223,8 @@ class Game:
             self.finish("skipped" if action == "skip" else "cancelled")
         elif action == "remove":
             self.remove(player_id)
+        elif action == "set_poser":
+            self.set_poser(player_id)
         elif action == "end":
             if self.state["phase"] in ("round_setup", "playing"):
                 self.finish("cancelled")
@@ -254,4 +271,5 @@ class Game:
         return {"type": "state", "event_id": self.state["id"], "name": self.state["name"],
                 "phase": self.state["phase"], "registration_open": self.state["registration_open"],
                 "players": players, "round": current, "history": history, "server_time": now,
-                "me": pid, "admin": admin, "settings": self.defaults.model_dump() if admin else None}
+                "me": pid, "admin": admin, "settings": self.defaults.model_dump() if admin else None,
+                "fixed_poser_id": self.state.get("fixed_poser_id") if admin else None}
