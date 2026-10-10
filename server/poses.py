@@ -192,6 +192,12 @@ POSES = [
 ]
 
 
+VIEW_TARGET_HEIGHT = .95
+VIEW_DISTANCE = 4.5
+MIN_CAMERA_HEIGHT = .50
+MIN_VIEW_ELEVATION = math.degrees(math.asin((MIN_CAMERA_HEIGHT - VIEW_TARGET_HEIGHT) / VIEW_DISTANCE))
+
+
 def project(points, azimuth, elevation):
     a, e = math.radians(azimuth), math.radians(elevation)
     right = (math.cos(a), 0, -math.sin(a))
@@ -199,17 +205,23 @@ def project(points, azimuth, elevation):
     outward = (math.sin(a) * math.cos(e), math.sin(e), math.cos(a) * math.cos(e))
     result = []
     for x, y, z in points:
-        p = (x, y - .95, z)
-        depth = 4.5 - sum(v * w for v, w in zip(p, outward))
+        p = (x, y - VIEW_TARGET_HEIGHT, z)
+        depth = VIEW_DISTANCE - sum(v * w for v, w in zip(p, outward))
         result.append([.5 + 1.6 * sum(v * w for v, w in zip(p, right)) / depth,
                        .5 - 1.6 * sum(v * w for v, w in zip(p, up)) / depth, 1.0])
     return result
 
 
 def make_view(pose, settings, rng=random):
+    # Camera height = target height + orbit distance * sin(elevation).
+    # Sample the intersection directly so a narrow valid range cannot be
+    # missed by repeatedly drawing candidates below the floor-height limit.
+    elevation_min = max(settings.elevation_min, MIN_VIEW_ELEVATION)
+    if elevation_min > settings.elevation_max:
+        raise ValueError("この仰角範囲ではカメラの高さが床から50cm未満になります。仰角の最大値を上げてください。")
     for _ in range(300):
         a = rng.uniform(settings.azimuth_min, settings.azimuth_max)
-        e = rng.uniform(settings.elevation_min, settings.elevation_max)
+        e = rng.uniform(elevation_min, settings.elevation_max)
         points = project(pose["points"], a, e)
         height = max(points[i][1] for i in JOINTS) - min(points[i][1] for i in JOINTS)
         if height <= 1e-6:

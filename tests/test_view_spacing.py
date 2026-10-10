@@ -7,7 +7,8 @@ from pydantic import ValidationError
 
 from server.game import Game
 from server.models import Settings
-from server.poses import JOINTS, POSES, make_view
+from server.poses import (JOINTS, POSES, make_view, MIN_CAMERA_HEIGHT,
+                          MIN_VIEW_ELEVATION, VIEW_DISTANCE, VIEW_TARGET_HEIGHT)
 from server.storage import Store
 
 
@@ -22,6 +23,27 @@ def test_every_displayed_joint_pair_meets_configured_spacing(pose):
     for seed in range(12):
         view = make_view(pose, settings, random.Random(seed))
         assert minimum_spacing(view["target"]) >= .1
+        assert VIEW_TARGET_HEIGHT + VIEW_DISTANCE * math.sin(math.radians(view["elevation"])) >= MIN_CAMERA_HEIGHT
+
+
+@pytest.mark.parametrize("limits", [(MIN_VIEW_ELEVATION, MIN_VIEW_ELEVATION),
+                                     (-30, MIN_VIEW_ELEVATION + .000001), (10, 20)])
+def test_camera_height_boundary_and_configured_range(monkeypatch, limits):
+    monkeypatch.setattr("server.poses.project", lambda *args: grid_points())
+    settings = Settings(elevation_min=limits[0], elevation_max=limits[1])
+    for seed in range(20):
+        view = make_view(POSES[0], settings, random.Random(seed))
+        assert max(limits[0], MIN_VIEW_ELEVATION) <= view["elevation"] <= limits[1]
+        assert VIEW_TARGET_HEIGHT + VIEW_DISTANCE * math.sin(math.radians(view["elevation"])) >= MIN_CAMERA_HEIGHT
+    assert settings.elevation_min == limits[0]
+
+
+def test_view_range_entirely_below_camera_height_limit_fails_before_projection(monkeypatch):
+    def unexpected_projection(*args):
+        pytest.fail("An infeasible camera must not be projected")
+    monkeypatch.setattr("server.poses.project", unexpected_projection)
+    with pytest.raises(ValueError, match="50cm"):
+        make_view(POSES[0], Settings(elevation_min=-30, elevation_max=-6))
 
 
 def grid_points(nearby=False):
