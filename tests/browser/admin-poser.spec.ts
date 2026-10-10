@@ -26,7 +26,7 @@ test('host PC participates in another tab while admin fixes and changes the pose
     pc.on('pageerror',error=>errors.push(error.message));
     await expect(pc.getByRole('heading',{name:'仲間を待っています'})).toBeVisible();
     expect((await (await host.request.get('/api/state?participant=1')).json()).admin).toBe(false);
-    await observer.goto('/');
+    await observer.goto('/' + new URL(state.join_url).hash);
     await observer.getByLabel('表示名').fill('観察者');
     await observer.getByRole('button',{name:'参加する'}).click();
     await expect(admin.locator('#member-count')).toHaveText('2 / 50人');

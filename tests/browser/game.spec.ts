@@ -25,7 +25,7 @@ test('mobile join, real model initialization, admin setup, clear and next group'
     await hostPage.getByLabel('管理者パスワード').fill('browser-test-password');
     await hostPage.getByRole('button', { name: 'ログイン', exact: true }).click();
     await expect(hostPage.getByRole('heading', { name: 'ゲーム進行' })).toBeVisible();
-    await expect(hostPage.getByLabel('参加URL')).toHaveValue('http://192.0.2.40:8011/');
+    await expect(hostPage.getByLabel('参加URL')).toHaveValue(/^http:\/\/192\.0\.2\.40:8011\/#invite=/);
     await hostPage.getByText('判定・ゲーム設定', { exact: false }).click();
     await hostPage.getByLabel('一致を保つ時間（秒）').fill('0');
     await hostPage.getByLabel('全関節点の最小間隔 / 全高', { exact: true }).fill('0.10');
@@ -34,7 +34,8 @@ test('mobile join, real model initialization, admin setup, clear and next group'
     expect((await (await host.request.get('/api/state')).json()).settings.min_keypoint_separation).toBe(.1);
 
     for (const [i, page] of pages.entries()) {
-      await page.goto('/');
+      const inviteUrl = new URL(await hostPage.getByLabel('参加URL').inputValue());
+      await page.goto('/' + inviteUrl.hash);
       if (i === 0) await page.screenshot({ path: testInfo.outputPath('mobile-join.png'), fullPage: true });
       await page.getByLabel('表示名').fill(i === 0 ? 'あおい' : 'かんた');
       await page.getByRole('button', { name: '参加する' }).click();

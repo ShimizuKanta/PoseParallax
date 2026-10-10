@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
 
 from .game import Game, GameError
+from .access import RegistrationGuard
 from .models import KeypointFrame, Settings
 from .network import configured_public_url, detect_lan_ip, join_url
 from .storage import Store
@@ -23,10 +24,12 @@ from .storage import Store
 ROOT = Path(__file__).resolve().parent.parent
 COOKIE = "pose_session"
 PARTICIPANT_COOKIE = "pose_pc_participant"
+ENROLLMENT_COOKIE = "pose_enrollment"
 
 
 class JoinBody(BaseModel):
     name: str = Field(min_length=1, max_length=30)
+    invite_token: str | None = Field(default=None, max_length=128)
 
 
 class LoginBody(BaseModel):
@@ -39,10 +42,36 @@ class ActionBody(BaseModel):
     player_id: str | None = Field(default=None, max_length=64)
 
 
-def create_app(data_dir=None, admin_password=None):
+def create_app(data_dir=None, admin_password=None, local_admin_port=None):
     directory = Path(data_dir or os.environ.get("POSE_DATA_DIR", ROOT / "data"))
     peers = {}
     attempts = defaultdict(deque)
+    registration = RegistrationGuard()
+
+    def invitation_token():
+        event_id = app.state.game.state["id"]
+        invitation = app.state.store.get("invitation")
+        if not invitation or invitation["event_id"] != event_id:
+            invitation = {"event_id": event_id, "token": secrets.token_urlsafe(32)}
+            app.state.store.put("invitation", invitation)
+        return invitation["token"]
+
+    def invitation_url(base_url):
+        origin = join_url(base_url, app.state.lan_ip, app.state.public_url)
+        return origin + "#invite=" + invitation_token() if origin else None
+
+    def local_admin_allowed(connection):
+        # The ASGI server address comes from the listening socket, not Host,
+        # Origin, client IP, or any trusted/spoofed forwarding header.
+        return local_admin_port is None or (
+            tuple(connection.scope.get("server") or ()) == ("127.0.0.1", local_admin_port)
+            and connection.headers.get("host") == f"127.0.0.1:{local_admin_port}")
+
+    def visible_identity(identity):
+        if identity and identity["role"] == "player":
+            if not app.state.game.state["players"].get(identity["player_id"], {}).get("active"):
+                return None
+        return identity
 
     @asynccontextmanager
     async def lifespan(app):
@@ -63,6 +92,10 @@ def create_app(data_dir=None, admin_password=None):
         app.state.password = password
         app.state.store = Store(directory / "pose.sqlite3")
         app.state.game = Game(app.state.store)
+        app.state.game.save()
+        invitation_token()
+        app.state.invitation_token = invitation_token
+        app.state.invitation_url = invitation_url
 
         async def send(ws, payload):
             try:
@@ -106,9 +139,13 @@ def create_app(data_dir=None, admin_password=None):
     app = FastAPI(title="Pose Parallax", lifespan=lifespan, docs_url=None, redoc_url=None)
 
     def snapshot(identity, base_url, participant_token=None):
+        identity = visible_identity(identity)
         result = app.state.game.snapshot(identity)
-        result["join_url"] = join_url(base_url, app.state.lan_ip, app.state.public_url)
-        result["setup_url"] = os.environ.get("POSE_SETUP_URL")
+        result["join_url"] = invitation_url(base_url) if result["admin"] else None
+        setup_url = os.environ.get("POSE_SETUP_URL")
+        result["setup_url"] = setup_url + "#invite=" + invitation_token() if result["admin"] and setup_url else None
+        if not identity:
+            result.update(players=[], round=None, history=[], me=None)
         participant = app.state.store.auth(participant_token)
         pid = participant.get("player_id") if participant else None
         result["admin_player_id"] = (pid if result["admin"] and
@@ -116,7 +153,10 @@ def create_app(data_dir=None, admin_password=None):
         return result
 
     def auth(request):
-        return app.state.store.auth(request.cookies.get(COOKIE))
+        identity = app.state.store.auth(request.cookies.get(COOKIE))
+        if identity and identity["role"] == "admin" and not local_admin_allowed(request):
+            return None
+        return identity
 
     def admin(request):
         identity = auth(request)
@@ -129,13 +169,15 @@ def create_app(data_dir=None, admin_password=None):
 
     @app.middleware("http")
     async def security_headers(request, call_next):
+        if (request.url.path == "/admin" or request.url.path.startswith("/api/admin/")) and not local_admin_allowed(request):
+            return JSONResponse({"detail": "管理画面は主催者PCから開いてください。"}, status_code=403)
         if request.method not in ("GET", "HEAD", "OPTIONS"):
             origin = request.headers.get("origin")
             if origin and not same_origin(origin, request.headers.get("host")):
                 return JSONResponse({"detail": "別サイトからの操作は許可されていません。"}, status_code=403)
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Referrer-Policy"] = "same-origin"
+        response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Permissions-Policy"] = "camera=(self), microphone=()"
         response.headers["X-Frame-Options"] = "DENY"
         if request.url.path.startswith("/api"):
@@ -158,9 +200,14 @@ def create_app(data_dir=None, admin_password=None):
         return {"status": "ok"}
 
     @app.get("/api/state")
-    async def state(request: Request):
+    async def state(request: Request, response: Response):
         identity = (app.state.store.auth(request.cookies.get(PARTICIPANT_COOKIE))
                     if request.query_params.get("participant") == "1" else auth(request))
+        if identity and identity["role"] == "admin" and not local_admin_allowed(request):
+            identity = None
+        if not registration.identity(request.cookies.get(ENROLLMENT_COOKIE)):
+            response.set_cookie(ENROLLMENT_COOKIE, registration.cookie(), max_age=86400,
+                                httponly=True, secure=request.url.scheme == "https", samesite="strict")
         return snapshot(identity, str(request.base_url), request.cookies.get(PARTICIPANT_COOKIE))
 
     @app.post("/api/admin/join")
@@ -194,6 +241,10 @@ def create_app(data_dir=None, admin_password=None):
             if player["active"]:
                 return {"player_id": player["id"]}
             raise HTTPException(403, "このゲームから退出しました。次のグループの受付をお待ちください。")
+        if not registration.allow(request.client.host, request.cookies.get(ENROLLMENT_COOKIE)):
+            raise HTTPException(429, "参加登録が多すぎます。1分ほど待ってから再試行してください。", headers={"Retry-After": "60"})
+        if not body.invite_token or not hmac.compare_digest(body.invite_token.encode(), invitation_token().encode()):
+            raise HTTPException(403, "主催者の最新のQRコードから参加してください。")
         name = body.name.strip()
         if not name:
             raise HTTPException(422, "表示名を入力してください。")
@@ -219,6 +270,9 @@ def create_app(data_dir=None, admin_password=None):
     @app.post("/api/logout")
     async def logout(request: Request, response: Response):
         token = request.cookies.get(COOKIE)
+        identity = app.state.store.auth(token)
+        if identity and identity["role"] == "admin" and not local_admin_allowed(request):
+            raise HTTPException(403, "管理画面は主催者PCから開いてください。")
         if token:
             app.state.store.revoke(token)
         response.delete_cookie(COOKIE)
@@ -243,7 +297,7 @@ def create_app(data_dir=None, admin_password=None):
     async def websocket(ws: WebSocket):
         token = ws.cookies.get(PARTICIPANT_COOKIE if ws.query_params.get("participant") == "1" else COOKIE)
         identity = app.state.store.auth(token)
-        if not identity or not same_origin(ws.headers.get("origin"), ws.headers.get("host")):
+        if not identity or (identity["role"] == "admin" and not local_admin_allowed(ws)) or not same_origin(ws.headers.get("origin"), ws.headers.get("host")):
             await ws.close(code=4401)
             return
         pid = identity.get("player_id")

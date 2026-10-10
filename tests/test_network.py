@@ -61,11 +61,14 @@ def test_http_and_websocket_snapshots_use_the_same_lan_url(tmp_path, monkeypatch
     monkeypatch.setenv("POSE_LAN_IP", "192.168.21.130")
     monkeypatch.delenv("POSE_PUBLIC_URL", raising=False)
     with TestClient(create_app(tmp_path, "network-test-password"), base_url="http://localhost:8000") as client:
-        assert client.get("/api/state").json()["join_url"] == "http://192.168.21.130:8000/"
-        client.post("/api/join", json={"name": "A"})
+        assert client.get("/api/state").json()["join_url"] is None
+        client.post("/api/admin/login", json={"password": "network-test-password"})
+        assert client.get("/api/state").json()["join_url"].startswith("http://192.168.21.130:8000/#invite=")
+        client.cookies.clear()
+        client.post("/api/join", json={"name": "A", "invite_token": client.app.state.invitation_token()})
         with client.websocket_connect("ws://localhost:8000/ws", headers={"origin": "http://localhost:8000"}) as ws:
-            assert ws.receive_json()["join_url"] == "http://192.168.21.130:8000/"
-            assert ws.receive_json()["join_url"] == "http://192.168.21.130:8000/"
+            assert ws.receive_json()["join_url"] is None
+            assert ws.receive_json()["join_url"] is None
 
 
 def test_launcher_binds_all_interfaces_and_prints_lan_url(monkeypatch, capsys):

@@ -46,8 +46,8 @@ def test_https_login_secure_cookie_wss_and_certificate_setup(tmp_path):
                 raise AssertionError("HTTPS server did not become ready")
             with httpx.Client(base_url=origin, verify=context, trust_env=False) as client:
                 state = client.get("/api/state").json()
-                assert state["join_url"] == origin + "/"
-                assert state["setup_url"] == f"http://192.0.2.40:{setup_port}/"
+                assert state["join_url"] is None
+                assert state["setup_url"] is None
                 login = client.post("/api/admin/login", json={"password": "https-test-password"}, headers={"Origin": origin})
                 assert login.status_code == 200
                 cookie_header = login.headers["set-cookie"].lower()
@@ -57,7 +57,8 @@ def test_https_login_secure_cookie_wss_and_certificate_setup(tmp_path):
                              additional_headers={"Cookie": cookie}, proxy=None, open_timeout=5) as ws:
                     snapshot = json.loads(ws.recv(timeout=5))
                     assert snapshot["admin"]
-                    assert snapshot["join_url"] == origin + "/"
+                    assert snapshot["join_url"].startswith(origin + "/#invite=")
+                    assert snapshot["setup_url"].startswith(f"http://192.0.2.40:{setup_port}/#invite=")
                     assert json.loads(ws.recv(timeout=5))["type"] == "state"
                 assert client.get("/data/tls/root-ca-key.pem").status_code == 404
             with httpx.Client(base_url=f"http://127.0.0.1:{setup_port}", trust_env=False) as setup:

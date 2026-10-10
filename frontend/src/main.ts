@@ -8,6 +8,7 @@ import { jointNames, joints, type Feedback, type Settings, type State } from './
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const adminPage = location.pathname === '/admin';
+const inviteToken = new URLSearchParams(location.hash.slice(1)).get('invite');
 const participantPage = !adminPage && new URLSearchParams(location.search).get('participant') === '1';
 const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]!));
 const time = (seconds: number | null) => seconds === null ? '—' : `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toFixed(1).padStart(4, '0')}`;
@@ -18,7 +19,7 @@ let viewKey = '', disposePoser: (() => void) | null = null, serverOffset = 0, re
 let reconnectTimer = 0, pollingTimer = 0, cameraReady = false;
 let lastFeedback: Feedback | null = null;
 
-app.innerHTML = `<header><a class="brand" href="${adminPage ? '/admin' : participantPage ? '/?participant=1' : '/'}"><span class="brand-icon">P<span>↗</span></span><span>POSE<span class="brand-light"> PARALLAX</span></span></a><div class="header-tools"><label class="language-label"><span class="sr-only">Language / 言語</span><select id="language" aria-label="Language / 言語"><option data-language value="ja">日本語</option><option data-language value="en">English</option></select></label><span class="connection" id="connection">${t("接続中")}</span></div></header>
+app.innerHTML = `<header><a class="brand" href="${adminPage ? '/admin' : participantPage ? '/?participant=1' : '/' + location.hash}"><span class="brand-icon">P<span>↗</span></span><span>POSE<span class="brand-light"> PARALLAX</span></span></a><div class="header-tools"><label class="language-label"><span class="sr-only">Language / 言語</span><select id="language" aria-label="Language / 言語"><option data-language value="ja">日本語</option><option data-language value="en">English</option></select></label><span class="connection" id="connection">${t("接続中")}</span></div></header>
   <main id="main"><section class="card"><p>${t("会場に接続しています…")}</p></section></main>
   <footer><span>${t("視点が変わる。チームがつながる。")}</span><a href="${adminPage ? '/' : '/admin'}">${adminPage ? t("参加者ページ") : t("管理者")}</a></footer>
   <div id="toast" role="status" aria-live="polite"></div>`;
@@ -112,7 +113,7 @@ function renderJoin() {
   document.querySelector('#join-form')?.addEventListener('submit', async event => {
     event.preventDefault(); const form = event.currentTarget as HTMLFormElement;
     const button = form.querySelector('button')!; button.disabled = true;
-    try { await api('join', { name: new FormData(form).get('name') }); await refresh(); connect(); }
+    try { await api('join', { name: new FormData(form).get('name'), invite_token: inviteToken }); await refresh(); connect(); }
     catch (error) { toast(t((error as Error).message)); button.disabled = false; }
   });
 }
@@ -208,9 +209,15 @@ function renderAdmin() {
   const makeQR = () => {
     const value = (document.querySelector('#join-url') as HTMLInputElement).value;
     if (!value) { toast(t("LAN IPを検出できませんでした。参加URLを入力してください。")); return; }
-    try { const url = new URL(value); if (!['http:', 'https:'].includes(url.protocol)) throw new Error(); }
+    try {
+      const url = new URL(value); if (!['http:', 'https:'].includes(url.protocol)) throw new Error();
+      if (value !== state!.setup_url && state!.join_url) {
+        url.hash = new URL(state!.join_url).hash;
+        (document.querySelector('#join-url') as HTMLInputElement).value = url.href;
+      }
+    }
     catch { toast(t("正しい参加URLを入力してください。")); return; }
-    void QRCode.toCanvas(document.querySelector('#qr'), value, { width: 160, margin: 2, color: { dark: '#101827', light: '#ffffff' } }).catch(() => toast(t("QRコードを作成できませんでした。")));
+    void QRCode.toCanvas(document.querySelector('#qr'), (document.querySelector('#join-url') as HTMLInputElement).value, { width: 160, margin: 2, color: { dark: '#101827', light: '#ffffff' } }).catch(() => toast(t("QRコードを作成できませんでした。")));
   };
   makeQR(); document.querySelector('#update-qr')!.addEventListener('click', makeQR);
   document.querySelector('#setup-qr')?.addEventListener('click', () => {
@@ -261,8 +268,8 @@ function updateLive() {
   set('member-count', t('{count} / 50人', { count: s.players.length }));
   set('phase-label', t(phaseNames[s.phase]));
   const joinButton = document.querySelector<HTMLButtonElement>('#join-button');
-  if (joinButton) joinButton.disabled = !s.registration_open || s.phase !== 'waiting' || s.players.length >= 50;
-  set('join-status', t('{count}人が参加中 · {status}', { count: s.players.length, status: s.registration_open ? t('参加受付中') : t('受付は終了しました') }));
+  if (joinButton) joinButton.disabled = !inviteToken || !s.registration_open || s.phase !== 'waiting' || s.players.length >= 50;
+  set('join-status', !inviteToken ? t('主催者の最新のQRコードから参加してください。') : s.registration_open ? t('参加受付中') : t('受付は終了しました'));
   const roster = document.querySelector('#roster');
   if (roster) roster.innerHTML = s.players.map(p => `<div class="player"><div class="avatar" data-user-content>${escape(p.name.slice(0, 1))}</div><div class="player-name"><strong><span data-user-content>${escape(p.name)}</span>${p.id === s.me ? ` <span class="small">${t("あなた")}</span>` : ''}</strong><span class="small">${r?.poser_id === p.id && s.phase !== 'waiting' ? t("ポーズ役") : p.connected ? t("接続済み") : t("再接続待ち")}</span></div><span class="player-status ${p.cleared || p.matched ? 'accent' : ''}">${s.phase === 'round_setup' ? p.ready ? t("準備OK") : t("準備中") : s.phase === 'playing' ? p.cleared ? '✓ CLEAR' : p.matched ? t("一致中") : r?.poser_id === p.id ? 'POSE' : `${Math.round(p.score)}%` : p.connected ? '●' : '○'}</span>${s.admin ? `<button class="quiet remove" data-player="${p.id}" aria-label="${escape(t('{name}を除外', { name: p.name }))}">${t("除外")}</button>` : ''}</div>`).join('') || `<p class="empty">${t("参加者を待っています")}</p>`;
   document.querySelectorAll<HTMLButtonElement>('.remove').forEach(button => button.addEventListener('click', () => {

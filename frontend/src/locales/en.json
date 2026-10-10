@@ -241,5 +241,8 @@
   "このPCを参加させてポーズ役に固定": "Join this PC and fix it as the poser",
   "このPCの参加画面を開く": "Open this PC's participant screen",
   "参加画面は別タブで開きます。管理画面もそのまま操作できます。": "The participant screen opens in another tab. You can continue using the admin screen.",
-  "この仰角範囲ではカメラの高さが床から50cm未満になります。仰角の最大値を上げてください。": "This elevation range places the camera below 50 cm above the floor. Increase the maximum elevation."
+  "この仰角範囲ではカメラの高さが床から50cm未満になります。仰角の最大値を上げてください。": "This elevation range places the camera below 50 cm above the floor. Increase the maximum elevation.",
+  "主催者の最新のQRコードから参加してください。": "Please join using the latest QR code from your host.",
+  "参加登録が多すぎます。1分ほど待ってから再試行してください。": "Too many registration attempts. Wait about a minute and try again.",
+  "管理画面は主催者PCから開いてください。": "Open the admin page on the host PC."
 }

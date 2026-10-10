@@ -28,12 +28,12 @@ def test_login_throttle_and_join_validation(client):
     for _ in range(5):
         assert client.post("/api/admin/login", json={"password": "wrong"}).status_code == 401
     assert client.post("/api/admin/login", json={"password": PASSWORD}).status_code == 429
-    assert client.post("/api/join", json={"name": "   "}).status_code == 422
-    assert client.post("/api/join", json={"name": "A" * 31}).status_code == 422
+    assert client.post("/api/join", json={"name": "   ", "invite_token": client.app.state.invitation_token()}).status_code == 422
+    assert client.post("/api/join", json={"name": "A" * 31, "invite_token": client.app.state.invitation_token()}).status_code == 422
 
 
 def test_websocket_rejects_wrong_origin(client):
-    client.post("/api/join", json={"name": "A"})
+    client.post("/api/join", json={"name": "A", "invite_token": client.app.state.invitation_token()})
     with pytest.raises(WebSocketDisconnect):
         with client.websocket_connect("/ws", headers={"origin": "https://evil.example"}):
             pass
@@ -48,12 +48,12 @@ def test_two_person_round_over_real_websockets(client):
     settings["hold_seconds"] = 0
     assert client.put("/api/admin/settings", json=settings).status_code == 200
     client.cookies.clear()
-    a = client.post("/api/join", json={"name": "A"}).json()["player_id"]
+    a = client.post("/api/join", json={"name": "A", "invite_token": client.app.state.invitation_token()}).json()["player_id"]
     token_a = client.cookies.get("pose_session")
     # Repeated joining is idempotent and cannot create ghost players.
-    assert client.post("/api/join", json={"name": "A again"}).json()["player_id"] == a
+    assert client.post("/api/join", json={"name": "A again", "invite_token": client.app.state.invitation_token()}).json()["player_id"] == a
     client.cookies.clear()
-    b = client.post("/api/join", json={"name": "B"}).json()["player_id"]
+    b = client.post("/api/join", json={"name": "B", "invite_token": client.app.state.invitation_token()}).json()["player_id"]
     token_b = client.cookies.get("pose_session")
     with ExitStack() as stack:
         sockets = {}
@@ -88,17 +88,17 @@ def test_two_person_round_over_real_websockets(client):
 
 
 def test_excluded_player_cannot_rejoin_current_event(client):
-    pid = client.post("/api/join", json={"name": "A"}).json()["player_id"]
+    pid = client.post("/api/join", json={"name": "A", "invite_token": client.app.state.invitation_token()}).json()["player_id"]
     token = client.cookies.get("pose_session")
     client.cookies.clear()
     client.post("/api/admin/login", json={"password": PASSWORD})
     assert client.post("/api/admin/action", json={"action": "remove", "player_id": pid}).status_code == 200
     client.cookies.set("pose_session", token)
-    assert client.post("/api/join", json={"name": "Again"}).status_code == 403
+    assert client.post("/api/join", json={"name": "Again", "invite_token": client.app.state.invitation_token()}).status_code == 403
 
 
 def test_three_bad_frames_disconnect(client):
-    client.post("/api/join", json={"name": "A"})
+    client.post("/api/join", json={"name": "A", "invite_token": client.app.state.invitation_token()})
     with client.websocket_connect("/ws", headers=ORIGIN) as ws:
         ws.receive_json()
         for _ in range(3):
@@ -143,7 +143,7 @@ def test_admin_and_pc_participant_websockets_coexist_and_can_start(client):
     pc = client.post('/api/admin/join', json={'name':'Host PC'}).json()['player_id']
     pc_token = client.cookies.get('pose_pc_participant')
     client.cookies.clear()
-    observer = client.post('/api/join', json={'name':'Observer'}).json()['player_id']
+    observer = client.post('/api/join', json={'name':'Observer', "invite_token": client.app.state.invitation_token()}).json()['player_id']
     observer_token = client.cookies.get('pose_session')
     assert client.post('/api/admin/action',json={'action':'set_poser','player_id':observer}).status_code == 403
     with ExitStack() as stack:
