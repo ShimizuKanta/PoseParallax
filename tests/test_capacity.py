@@ -13,14 +13,14 @@ def test_fifty_connected_players_can_complete_a_round(tmp_path):
         sockets = {}
         for i in range(50):
             client.cookies.clear()
-            response = client.post("/api/join", json={"name": f"Member {i + 1}"})
+            response = client.post("/api/join", json={"name": f"Member {i + 1}", "invite_token": client.app.state.invitation_token()})
             assert response.status_code == 200
             pid = response.json()["player_id"]
             ws = stack.enter_context(client.websocket_connect("/ws", headers={"origin": "http://testserver"}))
             assert ws.receive_json()["me"] == pid
             sockets[pid] = ws
         client.cookies.clear()
-        assert client.post("/api/join", json={"name": "51st"}).status_code == 409
+        assert client.post("/api/join", json={"name": "51st", "invite_token": client.app.state.invitation_token()}).status_code == 409
         client.cookies.set("pose_session", admin)
         assert client.post("/api/admin/action", json={"action": "setup"}).status_code == 200
         r = client.app.state.game.state["round"]

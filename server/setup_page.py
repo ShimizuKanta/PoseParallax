@@ -7,8 +7,9 @@ import threading
 from urllib.parse import parse_qs, urlsplit
 
 
-def setup_html(https_url, fingerprint, language="ja"):
+def setup_html(https_url, fingerprint, language="ja", allow_admin=True):
     url = escape(https_url, quote=True)
+    admin_button = f'<a class="button" href="{url}admin">管理画面を開く</a>' if allow_admin else ''
     fingerprint = escape(fingerprint)
     page = f'''<!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>スマートフォンの初期設定 · Pose Parallax</title>
@@ -30,7 +31,8 @@ li{{margin:12px 0}}code{{overflow-wrap:anywhere;font-size:12px}}.note{{color:#b8
 <li>設定から「証明書をインストール」を検索し、<strong>CA証明書</strong>を選び、ダウンロードしたファイルを指定します。端末のPIN等を求められる場合があります。</li>
 <li>Chromeを開き直し、下の「ゲームを開く」を押します。</li></ol>
 <p class="note">Pixelの例：「セキュリティとプライバシー」→「その他のセキュリティ設定」→「暗号化と認証情報」。名称は機種によって異なります。<a href="https://support.google.com/pixelphone/answer/2844832?hl=ja" target="_blank" rel="noreferrer">Googleの公式手順</a></p>
-<a class="button" href="{url}">ゲームを開く</a><a class="button" href="{url}admin">管理画面を開く</a>
+<a class="button" href="{url}">ゲームを開く</a>{admin_button}
+<script>document.querySelector('a.button').hash = location.hash;</script>
 <p class="note">登録後も証明書の警告が出る場合は主催者に確認してください。警告を無視して進む方法では、カメラが利用できないことがあります。</p>
 <details><summary>主催者との照合・PCでの設定</summary><p>この会場CAのSHA-256指紋です。主催者の起動ログに表示された値と照合できます。</p><code>{fingerprint}</code>
 <p>PCで管理画面を使う場合も、この会場CAをOSまたはブラウザの信頼済みルート証明書へ登録してください。配布するのは公開証明書だけです。</p></details>
@@ -75,8 +77,8 @@ SETUP_ENGLISH = {
 }
 
 
-def create_setup_server(host, port, https_url, tls):
-    pages = {language: setup_html(https_url, tls.fingerprint, language) for language in ("ja", "en")}
+def create_setup_server(host, port, https_url, tls, allow_admin=True):
+    pages = {language: setup_html(https_url, tls.fingerprint, language, allow_admin) for language in ("ja", "en")}
     certificate = tls.ca_der
 
     class Handler(BaseHTTPRequestHandler):
